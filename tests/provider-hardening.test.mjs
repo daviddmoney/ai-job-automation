@@ -70,3 +70,13 @@ test("job ingestion checks lease ownership before every individual write", async
  assert.equal(checks, 2);
  assert.equal(writes, 1);
 });
+
+import { verifyTotpCounter, verifyTotp } from "../src/lib/two-factor.ts";
+
+test("TOTP verifier returns the accepted time counter for atomic replay protection", () => {
+  // RFC 6238 SHA-1 test secret; at Unix time 59s the six-digit code is 287082.
+  const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+  assert.equal(verifyTotpCounter(secret, "287082", 59_000), 1);
+  assert.equal(verifyTotp(secret, "287082", 59_000), true);
+  assert.equal(verifyTotpCounter(secret, "000000", 59_000), null);
+});
