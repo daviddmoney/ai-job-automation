@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
   try { const key = requestRateLimitKey(request, "totp-confirm", session.user.id); if (!(await consumeRateLimit(key, 8, 600))) return NextResponse.json({ message: "Too many code attempts. Try again later." }, { status: 429 }); } catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
-  const body = await request.json().catch(() => null);
-  const parsed = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(body);
+  const body = await readLimitedJson(request, 4 * 1024);
+  if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
+  const parsed = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "Enter a six-digit authenticator code." }, { status: 400 });
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { twoFactorPendingSecretCipher: true } });
   if (!user?.twoFactorPendingSecretCipher) return NextResponse.json({ message: "Start authenticator setup first." }, { status: 400 });
