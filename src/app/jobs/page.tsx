@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/server-auth";
 import { prisma } from "@/lib/prisma";
+import { getRecentLagosJobs } from "@/lib/jobs/query";
 import SaveJobButton from "./save-job-button";
 import AddToApplicationsButton from "./add-to-applications-button";
 
@@ -7,25 +8,16 @@ export const dynamic = "force-dynamic";
 
 export default async function JobsPage() {
   const user = await requireUser();
-  const now = new Date();
-  const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const jobs = await prisma.jobPosting.findMany({
-    where: {
-      status: "ACTIVE",
-      country: "Nigeria",
-      AND: [
-        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-        { OR: [{ publishedAt: { gte: since } }, { discoveredAt: { gte: since } }] },
-        { OR: [
-          { workMode: { in: ["ONSITE", "HYBRID"] }, city: "Lagos" },
-          { workMode: "REMOTE", eligibleLocations: { hasSome: ["Lagos", "Lagos, Nigeria"] } }
-        ] }
-      ]
-    },
-    include: { savedBy: { where: { userId: user.id }, select: { id: true } } },
-    orderBy: [{ publishedAt: "desc" }, { discoveredAt: "desc" }],
-    take: 50
-  });
+  const jobs = await getRecentLagosJobs();
+  // User-specific state is fetched separately and is never placed in the
+  // shared public-jobs cache.
+  const saved = jobs.length
+    ? await prisma.savedJob.findMany({
+        where: { userId: user.id, jobPostingId: { in: jobs.map(job => job.id) } },
+        select: { jobPostingId: true }
+      })
+    : [];
+  const savedIds = new Set(saved.map(item => item.jobPostingId));
 
   return <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
     <a href="/dashboard" style={{ color: "#3657a7" }}>← Dashboard</a>
@@ -41,7 +33,7 @@ export default async function JobsPage() {
             <p style={{ color: "#596579", margin: "8px 0", fontSize: 14 }}>{job.locationText} · {job.workMode.toLowerCase()}{job.employmentType ? ` · ${job.employmentType}` : ""}</p>
             {job.salaryText && <p style={{ margin: "6px 0", fontWeight: 700 }}>{job.salaryText}</p>}
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><SaveJobButton jobId={job.id} initiallySaved={job.savedBy.length > 0}/><AddToApplicationsButton jobId={job.id}/></div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><SaveJobButton jobId={job.id} initiallySaved={savedIds.has(job.id)}/><AddToApplicationsButton jobId={job.id}/></div>
         </div>
         {job.description && <p style={{ color: "#596579", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "12px 0" }}>{job.description.slice(0, 700)}{job.description.length > 700 ? "…" : ""}</p>}
         <p style={{ color: "#788397", fontSize: 12 }}>Source: {job.source} · {job.publishedAt ? `Published ${job.publishedAt.toLocaleDateString("en-NG")}` : `Discovered ${job.discoveredAt.toLocaleDateString("en-NG")}`}</p>
