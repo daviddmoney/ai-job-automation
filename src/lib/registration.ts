@@ -44,7 +44,7 @@ export async function registerAccount(input: unknown) {
 }
 
 export async function verifyAccountEmail(input: unknown) {
-  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\\d{6}$/) }).safeParse(input);
+  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
   const email = parsed.data.email.trim().toLowerCase();
   const user = await prisma.user.findUnique({ where: { email } });
