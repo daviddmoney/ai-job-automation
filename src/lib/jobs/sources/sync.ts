@@ -13,7 +13,11 @@ async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (i
   await Promise.all(runners);
 }
 
-export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) {
+export async function syncJobSources(
+  adapters: JobSourceAdapter[],
+  since: Date,
+  options: { beforeIngest?: () => Promise<void>; ingest?: typeof ingestJob } = {}
+) {
   const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0, boardsSucceeded: 0, boardsFailed: 0 };
   const providerResults: Array<{ provider: string; status: "succeeded" | "partial" | "failed"; boards: NonNullable<JobSourceAdapter["lastRunReport"]> }> = [];
   const sourceResults = await Promise.allSettled(adapters.map(async adapter => {
@@ -47,7 +51,8 @@ export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) 
   }
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
     try {
-      const result = await ingestJob({ ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source });
+      await options.beforeIngest?.();
+      const result = await (options.ingest ?? ingestJob)({ ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source });
       if (result.outcome === "created") totals.created++;
       else if (result.outcome === "updated") totals.updated++;
       else totals.invalid++;
