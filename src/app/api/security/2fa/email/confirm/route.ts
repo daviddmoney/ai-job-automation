@@ -5,6 +5,7 @@ import { isSameOriginRequest } from "@/lib/request-security";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { otpDigest } from "@/lib/two-factor";
+import { readLimitedJson } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { twoFactorEmailCodeHash: true, twoFactorEmailCodeExpiresAt: true, twoFactorEmailCodeAttempts: true } });
   if (!user?.twoFactorEmailCodeHash || !user.twoFactorEmailCodeExpiresAt || user.twoFactorEmailCodeExpiresAt < new Date() || user.twoFactorEmailCodeAttempts >= 5) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
   if (otpDigest(parsed.data.code) !== user.twoFactorEmailCodeHash) { await prisma.user.update({ where: { id: session.user.id }, data: { twoFactorEmailCodeAttempts: { increment: 1 } } }); return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 }); }
-  await prisma.user.update({ where: { id: session.user.id }, data: { twoFactorEnabled: true, twoFactorMethod: "EMAIL", twoFactorEmailCodeHash: null, twoFactorEmailCodeExpiresAt: null, twoFactorEmailCodeAttempts: 0 } });
+  const activated = await prisma.user.updateMany({ where: { id: session.user.id, twoFactorEmailCodeHash: user.twoFactorEmailCodeHash, twoFactorEmailCodeExpiresAt: { gt: new Date() }, twoFactorEmailCodeAttempts: { lt: 5 } }, data: { twoFactorEnabled: true, twoFactorMethod: "EMAIL", twoFactorEmailCodeHash: null, twoFactorEmailCodeExpiresAt: null, twoFactorEmailCodeAttempts: 0 } });
+  if (activated.count !== 1) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
   return NextResponse.json({ message: "Email two-factor authentication enabled." });
 }
