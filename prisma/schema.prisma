@@ -117,6 +117,8 @@ model JobPosting {
   sourceJobId       String
   title             String
   company           String
+  salaryText        String?
+  employmentType    String?
   description       String?          @db.Text
   applicationUrl    String?
   sourceUrl         String?
