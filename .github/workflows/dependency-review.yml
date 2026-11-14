@@ -1,4 +1,4 @@
-name: Dependency review
+name: Dependency Review
 
 on:
   pull_request:
@@ -7,22 +7,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   dependency-review:
-    name: Audit installed dependencies
+    name: Review dependency changes
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Review dependency changes against GitHub Advisory Database
+        uses: actions/dependency-review-action@v4
         with:
-          node-version: 22
-
-      # The GitHub Dependency Review API requires repository features that
-      # are not currently available for this private repository. Use npm's
-      # registry-backed audit as the PR gate instead.
-      - name: Install dependencies
-        run: npm install
-
-      - name: Check for high-severity vulnerabilities
-        run: npm audit --audit-level=high
+          # Fail the PR if newly introduced dependencies have high or critical
+          # vulnerabilities. Review both runtime and development dependencies.
+          fail-on-severity: high
+          fail-on-scopes: runtime,development
