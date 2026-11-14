@@ -12,8 +12,8 @@
 - [x] Rate limits and same-origin checks on inspected sensitive endpoints.
 
 ## Repository automation
-- [x] CodeQL workflow added; requires code scanning activation and ENABLE_CODEQL=true.
-- [x] Dependency review workflow added; requires dependency graph support and ENABLE_DEPENDENCY_REVIEW=true.
+- [x] CodeQL workflow added; requires GitHub Code Security entitlement and repository code-scanning activation for this private repository.
+- [x] Dependency review workflow added; requires dependency graph support and eligible private-repository Code Security entitlement.
 - [x] Dependabot configuration.
 - [x] npm audit and Semgrep scans.
 - [x] Gitleaks secret scan.
@@ -23,7 +23,7 @@
 ## Required before public launch
 - [ ] Confirm latest npm audit has no unresolved high/critical findings; review any remaining advisories rather than using force upgrades.
 - [ ] Enable GitHub code scanning, dependency graph, secret scanning, push protection, Dependabot alerts and private vulnerability reporting where available.
-- [ ] Set ENABLE_CODEQL=true and ENABLE_DEPENDENCY_REVIEW=true after confirming repository plan support.
+- [ ] After confirming private-repository entitlement, enable GitHub Code Security and the dependency graph in repository settings, then rerun CodeQL and Dependency Review.
 - [ ] Configure Cloudflare WAF/DDoS/bot controls and restrict direct origin access.
 - [ ] Configure production secrets in a managed secret store; rotate any exposed credentials.
 - [ ] Add durable audit events for staff actions and security events.
