@@ -54,6 +54,8 @@ jobs:
           INSERT INTO "Application" ("id", "userId", "jobPostingId", "company", "jobTitle", "workLocation", "updatedAt")
           VALUES ('migration-app-a', 'migration-user-a', 'migration-job-a', 'Example Employer', 'Accountant', 'Lagos, Nigeria', CURRENT_TIMESTAMP);
           SQL
+      - name: Run database account-isolation integration test
+        run: npm run test:integration
       - name: Confirm migration state and schema access
         run: |
           npx prisma migrate status
