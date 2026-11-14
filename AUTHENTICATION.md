@@ -9,7 +9,7 @@ This repository now contains the initial Auth.js integration.
 - Prisma adapter models are included for OAuth accounts, database sessions, and verification tokens.
 
 ## Remaining work before production
-1. Implement registration with email verification and a robust distributed rate limiter.
+1. Add rate-limit bucket cleanup/monitoring and verify thresholds behind the production reverse proxy.
 2. Add email OTP and authenticator-app TOTP enrollment, challenge verification, backup-code rotation, and encrypted secret storage using a managed encryption key.
 3. Enforce 2FA challenges for accounts that have enabled 2FA; the current sign-in callback does not yet do this.
 4. Add staff provisioning. Public registration must never allow a user to choose the STAFF role.
@@ -31,7 +31,7 @@ This is an authentication foundation, not a production-ready security certificat
 - OAuth sign-in is blocked for accounts with 2FA enabled until an OAuth second-factor challenge flow is implemented; this prevents OAuth from bypassing 2FA.
 
 ## Production blockers
-- Add distributed rate limiting for registration, verification, login, and all OTP endpoints. The current per-user attempt counters are not a substitute for IP/account rate limiting.
+- Add automated cleanup and monitoring for persistent rate-limit buckets, and validate client-IP extraction behind the production reverse proxy.
 - Add resend-verification workflow, backup-code issuance/rotation, account recovery, trusted-device policy, and staff provisioning.
 - Add automated integration tests and run migrations/build before deployment.
 - Review email sender configuration, secret management, logging redaction, session invalidation, and CSRF/origin controls.
