@@ -14,15 +14,36 @@ async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 }
 
 export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) {
-  const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0 };
-  const sourceResults = await Promise.allSettled(adapters.map(async adapter => ({
-    adapter, records: await adapter.fetchRecentJobs({ since })
-  })));
+  const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0, boardsSucceeded: 0, boardsFailed: 0 };
+  const providerResults: Array<{ provider: string; status: "succeeded" | "partial" | "failed"; boards: NonNullable<JobSourceAdapter["lastRunReport"]> }> = [];
+  const sourceResults = await Promise.allSettled(adapters.map(async adapter => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { return { adapter, records: await adapter.fetchRecentJobs({ since }) }; }
+      catch (error) {
+        lastError = error;
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 400 * 2 ** (attempt - 1)));
+      }
+    }
+    throw lastError;
+  }));
   const work: Array<{ adapter: JobSourceAdapter; record: unknown }> = [];
-  for (const result of sourceResults) {
-    if (result.status === "rejected") { totals.sourceErrors++; continue; }
+  for (let i = 0; i < sourceResults.length; i++) {
+    const result = sourceResults[i];
+    const adapter = adapters[i];
+    if (result.status === "rejected") {
+      totals.sourceErrors++;
+      providerResults.push({ provider: adapter.source, status: "failed", boards: [{ target: adapter.source, status: "failed", error: result.reason instanceof Error ? result.reason.message : "PROVIDER_FAILED" }] });
+      continue;
+    }
     totals.sourcesChecked++;
-    for (const record of result.value.records) work.push({ adapter: result.value.adapter, record });
+    const boards = adapter.lastRunReport ?? [{ target: adapter.source, status: "succeeded" as const }];
+    const failed = boards.filter(board => board.status === "failed").length;
+    totals.boardsSucceeded += boards.length - failed;
+    totals.boardsFailed += failed;
+    if (failed) totals.sourceErrors += failed;
+    providerResults.push({ provider: adapter.source, status: failed === 0 ? "succeeded" : "partial", boards });
+    for (const record of result.value.records) work.push({ adapter, record });
   }
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
     try {
@@ -34,5 +55,5 @@ export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) 
       totals.sourceErrors++;
     }
   });
-  return totals;
+  return { ...totals, providers: providerResults, retryPolicy: "Only failed provider/board targets should be resubmitted; successful board results are retained." };
 }
