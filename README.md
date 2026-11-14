@@ -44,7 +44,7 @@ The application must not submit applications, send emails, or disclose personal 
 See [AUTHENTICATION.md](./AUTHENTICATION.md) and [SECURITY_CHECKLIST.md](./SECURITY_CHECKLIST.md) for configuration and launch blockers.
 
 ## Job discovery
-See [JOB_DISCOVERY.md](./JOB_DISCOVERY.md) for the strict Lagos location policy, staff import contract, saved-jobs privacy model, and application tracker. External job-board feeds are not connected yet.
+See [JOB_DISCOVERY.md](./JOB_DISCOVERY.md) for the strict Lagos location policy, staff import contract, saved-jobs privacy model, and application tracker. Jooble Nigeria adapter code is present; a valid provider API key is still required to retrieve live vacancies.
 
 ## Staff provisioning
 A verified account can be promoted through the controlled `npm run promote-staff` script using `STAFF_EMAIL` and `CONFIRM_STAFF_PROMOTION=YES` in the deployment/admin environment. Never expose these variables to the browser or public registration.
