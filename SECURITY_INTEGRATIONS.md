@@ -23,7 +23,7 @@
 - MFA/passkeys for administrators; no shared admin accounts.
 - Never expose secrets in source, logs, build artifacts or browser bundles.
 - Use a managed secret store and rotate credentials after suspected exposure.
-- Trust proxy IP headers only from configured trusted infrastructure.
+- Never trust X-Forwarded-For or X-Real-IP directly. Set TRUSTED_PROXY_HEADER_SECRET and configure the edge proxy to overwrite x-verified-client-ip and inject the matching x-trusted-proxy-token; otherwise client IP is treated as unknown.
 - Rate-limit authentication, translation, imports and expensive endpoints.
 - Use secure cookies, CSRF/origin protections, CSP, HSTS in production, output encoding and server-side validation.
 - Quarantine and scan uploaded documents before availability.
