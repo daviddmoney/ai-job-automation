@@ -80,3 +80,27 @@ test("TOTP verifier returns the accepted time counter for atomic replay protecti
   assert.equal(verifyTotp(secret, "287082", 59_000), true);
   assert.equal(verifyTotpCounter(secret, "000000", 59_000), null);
 });
+
+import { readLimitedJson } from "../src/lib/request-body.ts";
+
+test("JSON body reader rejects oversized declared bodies before reading", async () => {
+  const request = new Request("https://example.invalid/api", {
+    method: "POST", headers: { "content-type": "application/json", "content-length": "9999" }, body: "{}"
+  });
+  const result = await readLimitedJson(request, 32);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.status, 413);
+});
+
+test("JSON body reader enforces streamed byte limits and content type", async () => {
+  const tooLarge = new Request("https://example.invalid/api", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ value: "x".repeat(100) })
+  });
+  const result = await readLimitedJson(tooLarge, 32);
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.status, 413);
+  const wrongType = new Request("https://example.invalid/api", { method: "POST", headers: { "content-type": "text/plain" }, body: "{}" });
+  const rejected = await readLimitedJson(wrongType, 32);
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.status, 415);
+});
