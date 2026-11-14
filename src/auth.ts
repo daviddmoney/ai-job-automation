@@ -6,6 +6,7 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotp } from "@/lib/two-factor";
+import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -23,10 +24,14 @@ const providers = [
       secondFactorMethod: { label: "Second-factor method", type: "text" },
   secondFactorCode: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]{6}$/).optional())
     },
-    async authorize(rawCredentials) {
+    async authorize(rawCredentials, request) {
       const parsed = credentialsSchema.safeParse(rawCredentials);
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
+      try {
+        const key = requestRateLimitKey(request, "login", email);
+        if (!(await consumeRateLimit(key, 10, 900))) return null;
+      } catch { return null; }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
       try { if (!(await verify(user.passwordHash, parsed.data.password))) return null; } catch { return null; }
