@@ -15,11 +15,14 @@
 ## Required before public launch
 - [x] Add persistent IP/account rate limiting to registration, password login, email verification/resend, email OTP delivery, and 2FA setup/confirmation endpoints.
 - [ ] Add rate-limit bucket cleanup, abuse monitoring, and validate proxy IP extraction in production.
-- [ ] Add robust resend-verification, recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
-- [ ] Add an audited staff provisioning process and staff-only administration routes.
+- [x] Add resend-verification workflow.
+- [ ] Add recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
+- [x] Add staff-only `/admin` route guarded by a database-backed role check.
+- [ ] Add an audited staff provisioning process.
 - [ ] Add ownership-scoped CRUD APIs and tests proving users cannot access other users' data.
 - [ ] Review OAuth account linking and verified-email handling with real provider configuration.
-- [ ] Add CSRF/origin checks consistently to all state-changing endpoints.
+- [x] Add same-origin checks to registration, verification, resend, email-OTP, and 2FA configuration endpoints.
+- [ ] Review Auth.js cookie/CSRF settings and keep origin checks on future state-changing endpoints.
 - [ ] Add automated unit, integration, and end-to-end tests, including concurrent OTP replay attempts.
 - [ ] Configure production database, email delivery, AUTH_SECRET, TOTP_ENCRYPTION_KEY, and OAuth credentials in the hosting provider's secret manager.
 - [ ] Run Prisma migrations, lint, typecheck, and production build against a staging environment.
