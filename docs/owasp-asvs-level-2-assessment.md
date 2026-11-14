@@ -1,6 +1,7 @@
 # OWASP ASVS Level 2 assessment register
 
-**Target:** OWASP Application Security Verification Standard (ASVS) Level 2
+**Target:** OWASP Application Security Verification Standard (ASVS) v5.0.0 Level 2
+**Reference:** https://asvs.owasp.org/downloads/
 **Assessment status:** In progress — not certified and not independently verified
 **Scope:** Web application, authentication, APIs, user data isolation, job ingestion, admin functions, deployment and CI/CD.
 **Release rule:** Do not mark an item passed without test evidence, reviewer, date and commit/deployment identifier.
