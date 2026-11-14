@@ -61,6 +61,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/signin" },
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "credentials" && user.email) {
+        const existing = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { twoFactorEnabled: true, emailVerified: true } });
+        if (existing?.twoFactorEnabled || (existing && !existing.emailVerified)) return false;
+      }
+      return true;
+    },
     async jwt({ token, user }) {
       if (user) { token.sub = user.id; token.role = "role" in user ? user.role : "USER"; }
       return token;
