@@ -9,6 +9,8 @@ export const incomingJobSchema = z.object({
   sourceJobId: z.string().trim().min(1).max(256),
   title: z.string().trim().min(2).max(250),
   company: z.string().trim().min(1).max(250),
+  salaryText: z.string().trim().max(150).nullable().optional(),
+  employmentType: z.string().trim().max(100).nullable().optional(),
   description: z.string().max(30000).nullable().optional(),
   applicationUrl: optionalUrl,
   sourceUrl: optionalUrl,
@@ -34,6 +36,8 @@ export async function ingestJob(input: unknown) {
   const data = {
     title: job.title,
     company: job.company,
+    salaryText: job.salaryText ?? null,
+    employmentType: job.employmentType ?? null,
     description: job.description ?? null,
     applicationUrl: job.applicationUrl ?? null,
     sourceUrl: job.sourceUrl ?? null,
