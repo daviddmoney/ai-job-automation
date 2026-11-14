@@ -140,6 +140,8 @@ model JobPosting {
   @@unique([source, sourceJobId])
   @@index([status, publishedAt])
   @@index([city, state, country])
+  @@index([country, status, city, publishedAt])
+  @@index([country, status, workMode, publishedAt])
 }
 
 model SavedJob {
