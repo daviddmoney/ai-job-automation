@@ -17,7 +17,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       # The GitHub Dependency Review API requires repository features that
       # are not currently available for this private repository. Use npm's
