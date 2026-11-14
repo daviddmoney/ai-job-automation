@@ -12,6 +12,17 @@ enum UserRole {
   STAFF
 }
 
+enum JobWorkMode {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+enum JobPostingStatus {
+  ACTIVE
+  CLOSED
+}
+
 enum ApplicationStatus {
   SAVED
   PREPARING
@@ -48,6 +59,7 @@ model User {
   sessions              Session[]
   profile               JobProfile?
   applications          Application[]
+  savedJobs             SavedJob[]
   auditEvents           AuditEvent[]
 }
 
@@ -99,10 +111,53 @@ model JobProfile {
   updatedAt       DateTime @updatedAt
 }
 
+model JobPosting {
+  id                String           @id @default(cuid())
+  source            String
+  sourceJobId       String
+  title             String
+  company           String
+  description       String?          @db.Text
+  applicationUrl    String?
+  sourceUrl         String?
+  locationText      String
+  city              String?
+  state             String?
+  country           String?
+  workMode          JobWorkMode      @default(ONSITE)
+  eligibleLocations String[]         @default([])
+  publishedAt       DateTime?
+  discoveredAt      DateTime         @default(now())
+  expiresAt         DateTime?
+  status            JobPostingStatus @default(ACTIVE)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  savedBy           SavedJob[]
+  applications      Application[]
+
+  @@unique([source, sourceJobId])
+  @@index([status, publishedAt])
+  @@index([city, state, country])
+}
+
+model SavedJob {
+  id           String     @id @default(cuid())
+  userId       String
+  jobPostingId String
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobPostingId])
+  @@index([userId, createdAt])
+}
+
 model Application {
   id           String            @id @default(cuid())
   userId       String
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobPostingId String?
+  jobPosting   JobPosting?       @relation(fields: [jobPostingId], references: [id], onDelete: SetNull)
   company      String
   jobTitle     String
   jobUrl       String?
