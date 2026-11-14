@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { revalidateTag } from "next/cache";
 import { JobPostingStatus, JobWorkMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canonicalLagosLocation } from "@/lib/jobs/location";
@@ -57,5 +58,6 @@ export async function ingestJob(input: unknown) {
     create: { source: job.source, sourceJobId: job.sourceJobId, ...data },
     update: data
   });
+  revalidateTag("public-lagos-jobs");
   return { outcome: existing ? "updated" as const : "created" as const };
 }
