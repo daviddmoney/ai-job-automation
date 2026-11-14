@@ -1,0 +1,1 @@
+Run the guarded Next.js 16.1.5 upgrade on this feature branch. The workflow commits only after tests, typecheck, build, npm audit and Snyk pass.
