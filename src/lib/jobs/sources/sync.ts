@@ -59,7 +59,8 @@ export async function syncJobSources(
       if (result.outcome === "created") totals.created++;
       else if (result.outcome === "updated") totals.updated++;
       else totals.invalid++;
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === "JobSyncLeaseLost") throw error;
       totals.sourceErrors++;
     }
   });
