@@ -12,7 +12,6 @@ permissions:
   security-events: write
 jobs:
   analyze:
-    if: ${{ vars.ENABLE_CODEQL == 'true' }}
     name: Analyze TypeScript
     runs-on: ubuntu-latest
     steps:
