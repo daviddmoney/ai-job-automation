@@ -1,5 +1,5 @@
 import type { JobWorkMode } from "@prisma/client";
-const norm = (value: string | null | undefined) => (value ?? "").normalize("NFKC").trim().toLocaleLowerCase().replace(/\\s+/g, " ");
+const norm = (value: string | null | undefined) => (value ?? "").normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " ");
 export interface JobLocationInput { workMode: JobWorkMode; locationText: string; city?: string | null; state?: string | null; country?: string | null; eligibleLocations?: string[]; }
 export function normaliseJobLocation(input: JobLocationInput) {
  return { locationText: input.locationText.trim(), city: input.city?.trim() || null, state: input.state?.trim() || null, country: input.country?.trim() || null, eligibleLocations: (input.eligibleLocations ?? []).map(x => x.trim()).filter(Boolean) };

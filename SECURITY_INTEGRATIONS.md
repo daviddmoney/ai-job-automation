@@ -2,16 +2,16 @@
 
 ## Repository-enabled controls
 - CodeQL static analysis.
-- GitHub dependency review on pull requests.
+- GitHub dependency review on pull requests (requires dependency graph/GitHub Advanced Security availability and repository variable ENABLE_DEPENDENCY_REVIEW=true).
 - Dependabot for npm and GitHub Actions.
 - npm audit and Semgrep scans.
 - Gitleaks secret scanning.
-- Optional Snyk scanning when SNYK_TOKEN is configured.
+- Optional Snyk scanning when ENABLE_SNYK=true and SNYK_TOKEN is configured.
 
 ## External services requiring separate activation
 1. Cloudflare: configure DNS/proxy, WAF managed rules, DDoS protection, bot controls, rate limits and Turnstile. Restrict direct origin access.
-2. GitHub repository settings: enable secret scanning, push protection, Dependabot alerts/security updates and private vulnerability reporting where available. Workflow files cannot toggle repository settings.
-3. Snyk: add a least-privilege SNYK_TOKEN as an Actions secret.
+2. GitHub repository settings: enable the dependency graph, secret scanning, push protection, Dependabot alerts/security updates and private vulnerability reporting where available. Workflow files cannot toggle repository settings.
+3. Snyk: set repository variable ENABLE_SNYK=true and add a least-privilege SNYK_TOKEN as an Actions secret.
 4. Wazuh: deploy agents and forward host/application/authentication logs to a secured manager.
 5. Microsoft Sentinel: configure a Log Analytics workspace, connectors, retention and alert rules. Minimise personal data sent to the SIEM.
 6. Hosting/database: enable managed encryption, private networking, restricted ingress, TLS, encrypted backups and point-in-time recovery.
