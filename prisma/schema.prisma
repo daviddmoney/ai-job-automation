@@ -170,6 +170,7 @@ model Application {
   createdAt    DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
+  @@unique([userId, jobPostingId])
   @@index([userId, status])
   @@index([userId, createdAt])
 }
