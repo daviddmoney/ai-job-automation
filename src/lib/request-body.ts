@@ -5,7 +5,7 @@ export type LimitedJsonResult =
 /** Read JSON with a hard byte ceiling; Content-Length is advisory, streaming limit is authoritative. */
 export async function readLimitedJson(request: Request, maxBytes = 64 * 1024): Promise<LimitedJsonResult> {
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!/^application\\/json(?:\\s*;|$)/.test(contentType)) {
+  if (!/^application\/json(?:\s*;|$)/.test(contentType)) {
     return { ok: false, status: 415, message: "Content-Type must be application/json." };
   }
   const declared = request.headers.get("content-length");
