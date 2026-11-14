@@ -10,7 +10,8 @@ import {
 } from "@/lib/jobs/sources/queue";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Allow slow providers and multiple board adapters to finish while the lease heartbeat renews ownership.
+export const maxDuration = 300;
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
     if (leaseLost || renewalInFlight) return;
     renewalInFlight = true;
     void renewLease().catch(() => { leaseLost = true; }).finally(() => { renewalInFlight = false; });
-  }, 30_000);
+  }, 15_000);
   heartbeat.unref?.();
 
   try {
