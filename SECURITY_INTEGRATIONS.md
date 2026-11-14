@@ -1,7 +1,7 @@
 # Security integrations and operations
 
 ## Repository-enabled controls
-- CodeQL static analysis (requires code scanning to be enabled for this private repository and repository variable ENABLE_CODEQL=true).
+- CodeQL static analysis and SARIF publishing (requires GitHub Code Security entitlement and code scanning enabled for this private repository).
 - GitHub dependency review (requires dependency graph/GitHub Advanced Security availability and repository variable ENABLE_DEPENDENCY_REVIEW=true).
 - Dependabot for npm and GitHub Actions.
 - npm audit and Semgrep scans.
@@ -11,8 +11,8 @@
 ## External services requiring separate activation
 1. Cloudflare: configure DNS/proxy, WAF managed rules, DDoS protection, bot controls, rate limits and Turnstile. Restrict direct origin access.
 2. GitHub repository settings: enable the dependency graph, code scanning, secret scanning, push protection, Dependabot alerts/security updates and private vulnerability reporting where available. Private-repository code scanning and dependency review may require GitHub Code Security / Advanced Security entitlement. Workflow files cannot toggle repository settings.
-3. CodeQL: after enabling code scanning in repository settings, set repository variable ENABLE_CODEQL=true.
-4. Dependency review: after enabling the dependency graph and confirming plan support, set repository variable ENABLE_DEPENDENCY_REVIEW=true.
+3. CodeQL: enable GitHub Code Security in repository settings, then rerun the CodeQL workflow. The workflow now uploads SARIF directly to Code Scanning.
+4. Dependency review: enable the dependency graph and confirm private-repository Code Security entitlement, then rerun the Dependency Review workflow.
 5. Snyk: set repository variable ENABLE_SNYK=true and add a least-privilege SNYK_TOKEN as an Actions secret.
 6. Wazuh: deploy agents and forward host/application/authentication logs to a secured manager.
 7. Microsoft Sentinel: configure a Log Analytics workspace, connectors, retention and alert rules. Minimise personal data sent to the SIEM.
