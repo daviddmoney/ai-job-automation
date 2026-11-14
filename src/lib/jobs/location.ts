@@ -26,7 +26,7 @@ export function isLagosOpportunity(input: LagosLocationInput) {
   const parts = input.locationText.split(",").map((part) => normalise(part));
   const city = normalise(input.city) || parts[0] || "";
   const state = normalise(input.state) || (parts.length >= 3 ? parts[1] : "");
-  return city === "lagos" || state === "lagos" || state === "lagos state";
+  return city === "lagos" || state === "lagos" || state === "lagos state" || normalise(input.locationText).includes("lagos");
 }
 
 export function canonicalLagosLocation(input: LagosLocationInput) {
