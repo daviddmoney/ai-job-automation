@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
-import { decryptTotpSecret, verifyTotp } from "@/lib/two-factor";
+import { decryptTotpSecret, verifyTotpCounter } from "@/lib/two-factor";
+import { readLimitedJson } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
@@ -19,8 +20,10 @@ export async function POST(request: NextRequest) {
   if (!user?.twoFactorPendingSecretCipher) return NextResponse.json({ message: "Start authenticator setup first." }, { status: 400 });
   try {
     const secret = decryptTotpSecret(user.twoFactorPendingSecretCipher);
-    if (!verifyTotp(secret, parsed.data.code)) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
-    await prisma.user.update({ where: { id: session.user.id }, data: { twoFactorSecretCipher: user.twoFactorPendingSecretCipher, twoFactorPendingSecretCipher: null, twoFactorEnabled: true, twoFactorMethod: "TOTP" } });
+    const counter = verifyTotpCounter(secret, parsed.data.code);
+    if (counter === null) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
+    const activated = await prisma.user.updateMany({ where: { id: session.user.id, twoFactorPendingSecretCipher: user.twoFactorPendingSecretCipher, OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }] }, data: { twoFactorSecretCipher: user.twoFactorPendingSecretCipher, twoFactorPendingSecretCipher: null, twoFactorEnabled: true, twoFactorMethod: "TOTP", twoFactorLastTotpCounter: BigInt(counter), recoveryCodeHashes: [] } });
+    if (activated.count !== 1) return NextResponse.json({ message: "This authenticator code has already been used. Wait for a new code and try again." }, { status: 409 });
     return NextResponse.json({ message: "Authenticator two-factor authentication enabled." });
   } catch { return NextResponse.json({ message: "Authenticator setup could not be completed." }, { status: 503 }); }
 }
