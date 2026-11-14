@@ -24,11 +24,13 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ message: "Invalid job reference." }, { status: 400 });
   const job = await prisma.jobPosting.findFirst({ where: { id: parsed.data.jobPostingId, status: "ACTIVE", country: "Nigeria", OR: [{ workMode: { in: ["ONSITE", "HYBRID"] }, city: "Lagos" }, { workMode: "REMOTE", eligibleLocations: { hasSome: ["Lagos", "Lagos, Nigeria"] } }] } });
   if (!job || (job.expiresAt && job.expiresAt <= new Date())) return NextResponse.json({ message: "This opportunity is no longer available in the Lagos job list." }, { status: 404 });
-  const existing = await prisma.application.findFirst({ where: { userId: session.user.id, jobPostingId: job.id }, select: { id: true } });
-  if (existing) return NextResponse.json({ message: "This job is already in your application tracker.", applicationId: existing.id }, { status: 200 });
-  const application = await prisma.application.create({ data: { userId: session.user.id, jobPostingId: job.id, company: job.company, jobTitle: job.title, jobUrl: job.applicationUrl, workLocation: job.locationText, workMode: job.workMode, source: job.source, publishedAt: job.publishedAt, status: "SAVED" } });
+  const application = await prisma.application.upsert({
+    where: { userId_jobPostingId: { userId: session.user.id, jobPostingId: job.id } },
+    create: { userId: session.user.id, jobPostingId: job.id, company: job.company, jobTitle: job.title, jobUrl: job.applicationUrl, workLocation: job.locationText, workMode: job.workMode, source: job.source, publishedAt: job.publishedAt, status: "SAVED" },
+    update: {}
+  });
   await prisma.auditEvent.create({ data: { userId: session.user.id, action: "APPLICATION_CREATED", resource: "Application", resourceId: application.id } });
-  return NextResponse.json({ message: "Job added to your application tracker.", applicationId: application.id }, { status: 201 });
+  return NextResponse.json({ message: "Job added to your application tracker or was already present.", applicationId: application.id }, { status: 200 });
 }
 
 export async function PATCH(request: NextRequest) {
