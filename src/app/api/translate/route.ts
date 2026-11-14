@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ result, reviewRequired: true, notice: "Review the translation before using it in an application or sending it to an employer." });
  } catch (error) {
   const code = error instanceof Error ? error.message : "";
-  const status = code === "TRANSLATION_NOT_CONFIGURED" ? 503 : code === "TRANSLATION_TEXT_INVALID" || code === "TRANSLATION_LANGUAGE_INVALID" ? 400 : 502;
-  return NextResponse.json({ message: status === 503 ? "No translation provider is configured." : status === 400 ? "Invalid translation request." : "Translation providers are temporarily unavailable." }, { status });
+  const status = code === "TRANSLATION_NOT_CONFIGURED" ? 503 : code === "TRANSLATION_TEXT_INVALID" || code === "TRANSLATION_LANGUAGE_INVALID" || code === "TRANSLATION_LANGUAGE_UNSUPPORTED" ? 400 : 502;
+  return NextResponse.json({ message: status === 503 ? "No translation provider is configured." : status === 400 ? "Invalid or unsupported translation language." : "Translation providers are temporarily unavailable." }, { status });
  }
 }
