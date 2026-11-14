@@ -12,7 +12,7 @@ A secure, multi-user, global AI job discovery and application-management platfor
 - Keep each user's profile, CV, saved jobs, applications and preferences private.
 
 ## Stack
-Next.js App Router, TypeScript, PostgreSQL, Prisma, Auth.js, Zod and Nodemailer.
+Next.js App Router, TypeScript, PostgreSQL, Prisma, Auth.js and Zod.
 
 ## Job discovery
 Provider-independent adapters are available for Greenhouse, Lever and Ashby public job boards. Jooble Nigeria remains an optional supplementary source. Configure approved employer board identifiers in server-side environment variables. These APIs do not provide universal access to every employer or job board; coverage depends on configured boards, permissions and provider terms.
@@ -24,8 +24,13 @@ The server-side translation gateway supports Google Cloud Translation, DeepL, Mi
 
 See MULTILINGUAL_ARCHITECTURE.md.
 
+## Email delivery
+Account verification and sign-in codes use a provider-independent HTTP email gateway supporting Resend, Postmark and SendGrid with fallback. Configure a verified EMAIL_FROM address and at least one provider key.
+
+See EMAIL_DELIVERY.md.
+
 ## Security
-Repository automation includes CodeQL, dependency review, Dependabot, npm audit, Semgrep, Gitleaks and optional Snyk scanning. Cloudflare, Wazuh and Microsoft Sentinel require separate account and infrastructure configuration.
+Repository automation includes CodeQL (when code scanning is enabled), dependency review (when dependency graph support is enabled), Dependabot, npm audit, Semgrep, Gitleaks and optional Snyk scanning. Cloudflare, Wazuh and Microsoft Sentinel require separate account and infrastructure configuration.
 
 See SECURITY_INTEGRATIONS.md and SECURITY_CHECKLIST.md.
 
