@@ -15,7 +15,7 @@ export default function JobPreferencesForm() {
  function update<K extends keyof Preferences>(key: K, value: Preferences[K]) { setData(old => ({ ...old, [key]: value })); }
  async function save(event: FormEvent<HTMLFormElement>) {
   event.preventDefault(); setSaving(true); setMessage("");
-  try { const response = await fetch("/api/preferences/jobs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); const result = await response.json(); setMessage(response.ok ? "Preferences saved successfully." : result.message || "Unable to save preferences."); }
+  try { const payload = { ...data, nativeLanguage: data.nativeLanguage?.trim() || null }; const response = await fetch("/api/preferences/jobs", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }); const result = await response.json(); setMessage(response.ok ? "Preferences saved successfully." : result.message || "Unable to save preferences."); }
   catch { setMessage("Unable to reach the server."); } finally { setSaving(false); }
  }
  if (loading) return <p>Loading your preferences…</p>;
