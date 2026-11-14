@@ -62,10 +62,10 @@ export class JoobleNigeriaAdapter implements JobSourceAdapter {
       const modeText = `${location} ${title} ${job.type ?? ""}`.toLowerCase();
       // Only the provider location field can establish Lagos eligibility.
       // A mention of Lagos in a description must not qualify another location.
-      const hasLagos = /\\blagos\\b/.test(locationLower);
+      const hasLagos = /\blagos\b/.test(locationLower);
       if (!hasLagos) continue;
-      const isRemote = /\\bremote\\b/.test(modeText);
-      const isHybrid = /\\bhybrid\\b/.test(modeText);
+      const isRemote = /\bremote\b/.test(modeText);
+      const isHybrid = /\bhybrid\b/.test(modeText);
       const workMode = isRemote ? "REMOTE" : isHybrid ? "HYBRID" : "ONSITE";
       const date = job.updated && !Number.isNaN(Date.parse(job.updated)) ? new Date(job.updated).toISOString() : null;
       if (date && new Date(date) < options.since) continue;
