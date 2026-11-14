@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { syncJobSources } from "@/lib/jobs/sources/sync";
 import { configuredJobAdapters } from "@/lib/jobs/sources/configured";
 import {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
     const totals = await syncJobSources(adapters, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
     // Prisma's JSON input type requires JSON-compatible object index signatures.
     // Round-tripping through JSON validates and normalizes the persisted payload.
-    const persistedTotals = JSON.parse(JSON.stringify(totals));
+    const persistedTotals = JSON.parse(JSON.stringify(totals)) as Prisma.InputJsonValue;
     const completed = await completeJobSyncTask(task.id, task.lockToken, persistedTotals);
     if (completed.count !== 1) {
       return NextResponse.json({ message: "Task lease expired before completion." }, { status: 409 });
