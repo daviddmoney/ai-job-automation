@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { isSameOriginRequest } from "@/lib/request-security";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { createTotpSecret, encryptTotpSecret, totpUri } from "@/lib/two-factor";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
   try { const key = requestRateLimitKey(request, "totp-setup", session.user.id); if (!(await consumeRateLimit(key, 5, 600))) return NextResponse.json({ message: "Too many setup attempts. Try again later." }, { status: 429 }); } catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
