@@ -56,4 +56,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Add generated npm package lockfile"
+          git fetch origin "${GITHUB_REF_NAME}"
+          if git cat-file -e "origin/${GITHUB_REF_NAME}:package-lock.json" 2>/dev/null; then
+            echo "A concurrent run already committed the lockfile."
+            exit 0
+          fi
+          git rebase "origin/${GITHUB_REF_NAME}"
           git push origin "HEAD:${GITHUB_REF_NAME}"
