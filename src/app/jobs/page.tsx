@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/server-auth";
 import { prisma } from "@/lib/prisma";
 import SaveJobButton from "./save-job-button";
+import AddToApplicationsButton from "./add-to-applications-button";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function JobsPage() {
             <p style={{ margin: 0, fontWeight: 700 }}>{job.company}</p>
             <p style={{ color: "#596579", margin: "8px 0", fontSize: 14 }}>{job.locationText} · {job.workMode.toLowerCase()}</p>
           </div>
-          <SaveJobButton jobId={job.id} initiallySaved={job.savedBy.length > 0}/>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><SaveJobButton jobId={job.id} initiallySaved={job.savedBy.length > 0}/><AddToApplicationsButton jobId={job.id}/></div>
         </div>
         {job.description && <p style={{ color: "#596579", lineHeight: 1.6, whiteSpace: "pre-wrap", margin: "12px 0" }}>{job.description.slice(0, 700)}{job.description.length > 700 ? "…" : ""}</p>}
         <p style={{ color: "#788397", fontSize: 12 }}>Source: {job.source} · {job.publishedAt ? `Published ${job.publishedAt.toLocaleDateString("en-NG")}` : `Discovered ${job.discoveredAt.toLocaleDateString("en-NG")}`}</p>
