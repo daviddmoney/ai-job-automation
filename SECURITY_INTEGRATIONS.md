@@ -13,7 +13,7 @@
 2. GitHub repository settings: enable the dependency graph, code scanning, secret scanning, push protection, Dependabot alerts/security updates and private vulnerability reporting where available. Private-repository code scanning and dependency review may require GitHub Code Security / Advanced Security entitlement. Workflow files cannot toggle repository settings.
 3. CodeQL: enable GitHub Code Security in repository settings, then rerun the CodeQL workflow. The workflow now uploads SARIF directly to Code Scanning.
 4. Dependency review: enable the dependency graph and confirm private-repository Code Security entitlement, then rerun the Dependency Review workflow.
-5. Snyk: set repository variable ENABLE_SNYK=true and add a least-privilege SNYK_TOKEN as an Actions secret.
+5. Snyk: add a least-privilege SNYK_TOKEN as an Actions repository secret. The workflow runs automatically; ENABLE_SNYK is no longer used.
 6. Wazuh: deploy agents and forward host/application/authentication logs to a secured manager.
 7. Microsoft Sentinel: configure a Log Analytics workspace, connectors, retention and alert rules. Minimise personal data sent to the SIEM.
 8. Hosting/database: enable managed encryption, private networking, restricted ingress, TLS, encrypted backups and point-in-time recovery.
@@ -35,6 +35,8 @@ No tool guarantees prevention of every attack. Automated scans do not replace co
 
 
 ## Optional independent DeepSeek pull-request review
+
+Create the API key at [DeepSeek Platform](https://platform.deepseek.com/) and add it in GitHub repository Settings → Secrets and variables → Actions → New repository secret, named `DEEPSEEK_API_KEY`. Do not paste the key into chat or commit it.
 
 - Workflow: `.github/workflows/deepseek-review.yml`.
 - Create a DeepSeek API key in the DeepSeek developer platform and store it only as the GitHub Actions repository secret `DEEPSEEK_API_KEY`.
