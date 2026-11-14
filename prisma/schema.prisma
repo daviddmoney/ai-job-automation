@@ -34,6 +34,9 @@ model User {
   twoFactorEnabled      Boolean       @default(false)
   twoFactorSecretCipher String?
   recoveryCodeHashes    String[]      @default([])
+  emailVerificationCodeHash String?
+  emailVerificationExpiresAt DateTime?
+  emailVerificationAttempts Int       @default(0)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   accounts              Account[]
