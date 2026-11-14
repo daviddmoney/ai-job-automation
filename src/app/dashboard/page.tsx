@@ -8,6 +8,7 @@ export default async function DashboardPage() {
     <p style={{ color: "#596579", lineHeight: 1.7 }}>You are signed in to your private job-search workspace.</p>
     <p style={{ color: "#788397", fontSize: 13 }}>Account role: {user.role}</p>
     <p><a href="/security/2fa" style={{ color: "#3657a7" }}>Configure two-factor authentication</a></p>
+    {user.role === "STAFF" && <p><a href="/admin" style={{ color: "#3657a7" }}>Staff administration</a></p>}
     <a href="/" style={{ color: "#3657a7" }}>Return to home</a>
   </main>;
 }
