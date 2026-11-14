@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Job Automation",
-  description: "A secure workspace for discovering and managing Lagos job opportunities."
+  description: "A secure, multilingual workspace for discovering and managing job opportunities worldwide."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
