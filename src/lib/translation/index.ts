@@ -3,6 +3,17 @@ export type TranslationProvider = "google" | "deepl" | "azure" | "aws" | "openai
 export interface TranslationInput { text: string; sourceLanguage?: string; targetLanguage: string; }
 export interface TranslationResult { translatedText: string; provider: TranslationProvider; sourceLanguage: string; targetLanguage: string; }
 const headers = { "Content-Type": "application/json", Accept: "application/json" };
+const SUPPORTED_LANGUAGES = new Set(["en","fr","de","es","it","pt","pt-br","zh","zh-cn","zh-tw","ja","ko","ar","hi","yo","ig","ha","sw","nl","ru","tr","pl","uk","vi","th","id","ms","fil","sv","da","no","fi","el","he","fa","bg","cs","ro","hu","hr","sk","sl","lt","lv","et"]);
+const DEEPL_LANGUAGES = new Set(["bg","cs","da","de","el","en","es","et","fi","fr","hu","id","it","ja","ko","lt","lv","nl","pl","pt","pt-br","ro","ru","sk","sl","sv","tr","uk","zh"]);
+const AWS_LANGUAGES = new Set(["af","ar","az","bn","bs","bg","ca","zh","zh-cn","zh-tw","hr","cs","da","fa","nl","en","et","fi","fr","ka","de","el","gu","ht","he","hi","hu","is","id","it","ja","kn","kk","ko","lv","lt","mk","ms","ml","mt","mr","mn","no","ps","pl","pt","ro","ru","sr","si","sk","sl","so","es","sw","sv","tl","ta","te","th","tr","uk","ur","uz","vi","cy"]);
+export function isSupportedTranslationLanguage(language: string): boolean {
+ return SUPPORTED_LANGUAGES.has(language.toLowerCase());
+}
+function providerSupports(provider: TranslationProvider, input: TranslationInput): boolean {
+ const languages = provider === "deepl" ? DEEPL_LANGUAGES : provider === "aws" ? AWS_LANGUAGES : SUPPORTED_LANGUAGES;
+ return languages.has(input.targetLanguage.toLowerCase()) &&
+  (!input.sourceLanguage || input.sourceLanguage === "auto" || languages.has(input.sourceLanguage.toLowerCase()));
+}
 const timeout = () => AbortSignal.timeout(20000);
 async function google(input: TranslationInput) {
  const key = process.env.GOOGLE_TRANSLATE_API_KEY; if (!key) throw new Error("not configured");
@@ -82,14 +93,15 @@ const configured = (p: TranslationProvider) => p === "google" ? Boolean(process.
  : Boolean(process.env.OPENAI_API_KEY);
 export async function translateText(input: TranslationInput): Promise<TranslationResult> {
  if (!input.text.trim() || input.text.length > 12000) throw new Error("TRANSLATION_TEXT_INVALID");
- if (!/^[a-zA-Z-]{2,20}$/.test(input.targetLanguage) || (input.sourceLanguage && !/^[a-zA-Z-]{2,20}$/.test(input.sourceLanguage))) throw new Error("TRANSLATION_LANGUAGE_INVALID");
+ if (!isSupportedTranslationLanguage(input.targetLanguage) || (input.sourceLanguage && input.sourceLanguage !== "auto" && !isSupportedTranslationLanguage(input.sourceLanguage))) throw new Error("TRANSLATION_LANGUAGE_INVALID");
  const order = (process.env.TRANSLATION_PROVIDER_ORDER || "google,deepl,azure,aws,openai").split(",").map(x => x.trim().toLowerCase()).filter((x): x is TranslationProvider => ["google","deepl","azure","aws","openai"].includes(x));
  const tried: string[] = [];
  for (const provider of [...new Set(order)]) {
-  if (!configured(provider)) continue;
+  if (!configured(provider) || !providerSupports(provider, input)) continue;
   tried.push(provider);
   try { return { translatedText: await adapters[provider](input), provider, sourceLanguage: input.sourceLanguage || "auto", targetLanguage: input.targetLanguage }; }
   catch { /* Fail over without logging user text, provider responses or credentials. */ }
  }
+ if (!tried.length && order.some(provider => configured(provider))) throw new Error("TRANSLATION_LANGUAGE_UNSUPPORTED");
  throw new Error(tried.length ? "TRANSLATION_PROVIDERS_UNAVAILABLE" : "TRANSLATION_NOT_CONFIGURED");
 }
