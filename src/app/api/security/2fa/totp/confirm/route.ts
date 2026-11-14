@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
   const body = await request.json().catch(() => null);
-  const parsed = z.object({ code: z.string().regex(/^\\d{6}$/) }).safeParse(body);
+  const parsed = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(body);
   if (!parsed.success) return NextResponse.json({ message: "Enter a six-digit authenticator code." }, { status: 400 });
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { twoFactorPendingSecretCipher: true } });
   if (!user?.twoFactorPendingSecretCipher) return NextResponse.json({ message: "Start authenticator setup first." }, { status: 400 });
