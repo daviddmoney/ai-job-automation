@@ -32,6 +32,11 @@ model User {
   passwordHash          String?
   role                  UserRole      @default(USER)
   twoFactorEnabled      Boolean       @default(false)
+  twoFactorMethod       String?
+  twoFactorEmailCodeHash String?
+  twoFactorEmailCodeExpiresAt DateTime?
+  twoFactorEmailCodeAttempts Int      @default(0)
+  twoFactorPendingSecretCipher String?
   twoFactorSecretCipher String?
   recoveryCodeHashes    String[]      @default([])
   emailVerificationCodeHash String?
