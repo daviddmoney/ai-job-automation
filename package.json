@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "typecheck": "tsc --noEmit",
-    "promote-staff": "node scripts/promote-staff.mjs"
+    "promote-staff": "node scripts/promote-staff.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
