@@ -77,9 +77,17 @@ export async function claimNextJobSyncTask() {
   });
 }
 
+export async function renewJobSyncTaskLease(id: string, lockToken: string) {
+  const now = new Date();
+  return prisma.jobSyncTask.updateMany({
+    where: { id, status: "PROCESSING", lockToken, lockExpiresAt: { gt: now } },
+    data: { lockExpiresAt: new Date(now.getTime() + LEASE_MS) }
+  });
+}
+
 export async function completeJobSyncTask(id: string, lockToken: string, result: Prisma.InputJsonValue) {
   return prisma.jobSyncTask.updateMany({
-    where: { id, status: "PROCESSING", lockToken },
+    where: { id, status: "PROCESSING", lockToken, lockExpiresAt: { gt: new Date() } },
     data: {
       status: "COMPLETED",
       completedAt: new Date(),
@@ -97,7 +105,7 @@ export async function failJobSyncTask(id: string, lockToken: string, attempts: n
   const retryDelayMs = Math.min(60_000 * 2 ** Math.max(0, attempts - 1), 15 * 60_000);
 
   return prisma.jobSyncTask.updateMany({
-    where: { id, status: "PROCESSING", lockToken },
+    where: { id, status: "PROCESSING", lockToken, lockExpiresAt: { gt: new Date() } },
     data: {
       status: exhausted ? "FAILED" : "PENDING",
       runAt: exhausted ? new Date() : new Date(Date.now() + retryDelayMs),
