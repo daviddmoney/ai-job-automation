@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const MAX_ATTEMPTS = 3;
@@ -26,6 +27,13 @@ export async function claimNextJobSyncTask() {
   const lockToken = randomUUID();
 
   return prisma.$transaction(async (tx) => {
+    // A worker can disappear on its final attempt. Expired final leases must
+    // be terminalized rather than remaining PROCESSING forever.
+    await tx.jobSyncTask.updateMany({
+      where: { status: "PROCESSING", attempts: { gte: MAX_ATTEMPTS }, lockExpiresAt: { lte: now } },
+      data: { status: "FAILED", lockedAt: null, lockExpiresAt: null, lockToken: null, lastError: "LeaseExpiredAfterMaxAttempts" }
+    });
+
     const candidate = await tx.jobSyncTask.findFirst({
       where: {
         attempts: { lt: MAX_ATTEMPTS },
@@ -64,13 +72,13 @@ export async function claimNextJobSyncTask() {
   });
 }
 
-export async function completeJobSyncTask(id: string, lockToken: string, result: object) {
+export async function completeJobSyncTask(id: string, lockToken: string, result: Prisma.InputJsonValue) {
   return prisma.jobSyncTask.updateMany({
     where: { id, status: "PROCESSING", lockToken },
     data: {
       status: "COMPLETED",
       completedAt: new Date(),
-      result: result as never,
+      result,
       lockedAt: null,
       lockExpiresAt: null,
       lockToken: null,
