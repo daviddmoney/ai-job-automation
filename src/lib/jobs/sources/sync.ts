@@ -16,9 +16,17 @@ async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) {
   const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0, boardsSucceeded: 0, boardsFailed: 0 };
   const providerResults: Array<{ provider: string; status: "succeeded" | "partial" | "failed"; boards: NonNullable<JobSourceAdapter["lastRunReport"]> }> = [];
-  const sourceResults = await Promise.allSettled(adapters.map(async adapter => ({
-    adapter, records: await adapter.fetchRecentJobs({ since })
-  })));
+  const sourceResults = await Promise.allSettled(adapters.map(async adapter => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { return { adapter, records: await adapter.fetchRecentJobs({ since }) }; }
+      catch (error) {
+        lastError = error;
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 400 * 2 ** (attempt - 1)));
+      }
+    }
+    throw lastError;
+  }));
   const work: Array<{ adapter: JobSourceAdapter; record: unknown }> = [];
   for (let i = 0; i < sourceResults.length; i++) {
     const result = sourceResults[i];
