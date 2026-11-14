@@ -57,6 +57,7 @@ model User {
   twoFactorEmailCodeAttempts  Int                 @default(0)
   twoFactorPendingSecretCipher String?
   twoFactorSecretCipher       String?
+  twoFactorLastTotpCounter    BigInt?
   recoveryCodeHashes          String[]            @default([])
   emailVerificationCodeHash   String?
   emailVerificationExpiresAt  DateTime?
