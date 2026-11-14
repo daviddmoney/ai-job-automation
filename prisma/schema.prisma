@@ -131,3 +131,11 @@ model AuditEvent {
 
   @@index([userId, createdAt])
 }
+
+model RateLimitBucket {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+
+  @@index([resetAt])
+}
