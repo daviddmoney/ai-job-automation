@@ -27,6 +27,11 @@ export async function claimNextJobSyncTask() {
   const lockToken = randomUUID();
 
   return prisma.$transaction(async (tx) => {
+    // Keep the queue table bounded without deleting pending or active work.
+    await tx.jobSyncTask.deleteMany({
+      where: { status: { in: ["COMPLETED", "FAILED"] }, updatedAt: { lt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) } }
+    });
+
     // A worker can disappear on its final attempt. Expired final leases must
     // be terminalized rather than remaining PROCESSING forever.
     await tx.jobSyncTask.updateMany({
