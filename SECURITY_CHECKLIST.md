@@ -13,7 +13,8 @@
 - [x] Security headers are configured in Next.js.
 
 ## Required before public launch
-- [ ] Add distributed IP/account rate limiting and abuse monitoring to every authentication and OTP endpoint.
+- [x] Add persistent IP/account rate limiting to registration, password login, email verification/resend, email OTP delivery, and 2FA setup/confirmation endpoints.
+- [ ] Add rate-limit bucket cleanup, abuse monitoring, and validate proxy IP extraction in production.
 - [ ] Add robust resend-verification, recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
 - [ ] Add an audited staff provisioning process and staff-only administration routes.
 - [ ] Add ownership-scoped CRUD APIs and tests proving users cannot access other users' data.
