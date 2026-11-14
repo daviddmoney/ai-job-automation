@@ -33,3 +33,12 @@ Next.js App Router, TypeScript, PostgreSQL, Prisma, Auth.js, Zod, and Tailwind C
 Initial scaffold. Authentication providers, database migrations, job-source integrations, automated tests, and production deployment still need configuration and verification.
 
 The application must not submit applications, send emails, or disclose personal information without explicit user approval.
+
+## Authentication routes
+- `/register` — create a standard user account.
+- `/verify-email` — verify the email address using the emailed code.
+- `/signin` — sign in with password and, when enabled, a second-factor code.
+- `/security/2fa` — enable email OTP or authenticator-app TOTP after signing in.
+- `/dashboard` — protected account area.
+
+See [AUTHENTICATION.md](./AUTHENTICATION.md) and [SECURITY_CHECKLIST.md](./SECURITY_CHECKLIST.md) for configuration and launch blockers.
