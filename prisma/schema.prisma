@@ -35,6 +35,13 @@ enum ApplicationStatus {
   WITHDRAWN
 }
 
+enum JobSyncTaskStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id                          String              @id @default(cuid())
   name                        String?
@@ -223,4 +230,24 @@ model RateLimitBucket {
   resetAt DateTime
 
   @@index([resetAt])
+}
+
+
+model JobSyncTask {
+  id            String            @id @default(cuid())
+  dedupeKey     String            @unique
+  status        JobSyncTaskStatus @default(PENDING)
+  attempts      Int               @default(0)
+  runAt         DateTime          @default(now())
+  lockedAt      DateTime?
+  lockExpiresAt DateTime?
+  lockToken     String?
+  completedAt   DateTime?
+  lastError     String?           @db.Text
+  result        Json?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([status, runAt])
+  @@index([status, lockExpiresAt])
 }
