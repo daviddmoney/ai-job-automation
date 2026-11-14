@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { isSameOriginRequest } from "@/lib/request-security";
+import { ApplicationStatus } from "@prisma/client";
+
+export const runtime = "nodejs";
+const createSchema = z.object({ jobPostingId: z.string().min(1).max(100) });
+const updateSchema = z.object({ applicationId: z.string().min(1).max(100), status: z.nativeEnum(ApplicationStatus).optional(), notes: z.string().max(5000).optional() }).refine(value => value.status !== undefined || value.notes !== undefined);
+
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
+  const applications = await prisma.application.findMany({ where: { userId: session.user.id }, include: { jobPosting: true }, orderBy: { updatedAt: "desc" }, take: 100 });
+  return NextResponse.json({ applications });
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
+  const parsed = createSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ message: "Invalid job reference." }, { status: 400 });
+  const job = await prisma.jobPosting.findFirst({ where: { id: parsed.data.jobPostingId, status: "ACTIVE", country: "Nigeria", OR: [{ workMode: { in: ["ONSITE", "HYBRID"] }, city: "Lagos" }, { workMode: "REMOTE", eligibleLocations: { hasSome: ["Lagos", "Lagos, Nigeria"] } }] } });
+  if (!job || (job.expiresAt && job.expiresAt <= new Date())) return NextResponse.json({ message: "This opportunity is no longer available in the Lagos job list." }, { status: 404 });
+  const existing = await prisma.application.findFirst({ where: { userId: session.user.id, jobPostingId: job.id }, select: { id: true } });
+  if (existing) return NextResponse.json({ message: "This job is already in your application tracker.", applicationId: existing.id }, { status: 200 });
+  const application = await prisma.application.create({ data: { userId: session.user.id, jobPostingId: job.id, company: job.company, jobTitle: job.title, jobUrl: job.applicationUrl, workLocation: job.locationText, workMode: job.workMode, source: job.source, publishedAt: job.publishedAt, status: "SAVED" } });
+  await prisma.auditEvent.create({ data: { userId: session.user.id, action: "APPLICATION_CREATED", resource: "Application", resourceId: application.id } });
+  return NextResponse.json({ message: "Job added to your application tracker.", applicationId: application.id }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
+  const parsed = updateSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ message: "Invalid application update." }, { status: 400 });
+  const owned = await prisma.application.findFirst({ where: { id: parsed.data.applicationId, userId: session.user.id }, select: { id: true } });
+  if (!owned) return NextResponse.json({ message: "Application not found." }, { status: 404 });
+  await prisma.application.update({ where: { id: owned.id }, data: { ...(parsed.data.status ? { status: parsed.data.status } : {}), ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}) } });
+  await prisma.auditEvent.create({ data: { userId: session.user.id, action: "APPLICATION_UPDATED", resource: "Application", resourceId: owned.id } });
+  return NextResponse.json({ message: "Application tracker updated." });
+}
