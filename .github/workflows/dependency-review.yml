@@ -1,15 +1,29 @@
 name: Dependency review
+
 on:
   pull_request:
     branches: [main]
+
 permissions:
   contents: read
-  pull-requests: read
+
 jobs:
   dependency-review:
+    name: Audit installed dependencies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
+
+      - uses: actions/setup-node@v4
         with:
-          fail-on-severity: high
+          node-version: 22
+          cache: npm
+
+      # The GitHub Dependency Review API requires repository features that
+      # are not currently available for this private repository. Use npm's
+      # registry-backed audit as the PR gate instead.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check for high-severity vulnerabilities
+        run: npm audit --audit-level=high
