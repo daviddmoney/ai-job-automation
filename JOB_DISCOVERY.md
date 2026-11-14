@@ -17,3 +17,8 @@ A staff-only `POST /api/admin/jobs/import` endpoint accepts between 1 and 100 jo
 
 ## Not yet connected
 No external job-board source adapters or live job feeds are configured yet. The staff import endpoint and data model are ready for approved source integrations. Respect each provider's API terms, robots policies, rate limits, and licensing before connecting a source.
+
+## Jooble Nigeria integration
+The first configured provider adapter uses the official Jooble Nigeria publisher API. Obtain a key at https://ng.jooble.org/api/about and store it as `JOOBLE_NG_API_KEY` in the server environment. The adapter searches five accounting/finance-related keyword groups and normalizes returned jobs before the strict Lagos filter. See [JOOBLE_SETUP.md](./JOOBLE_SETUP.md).
+
+A staff member can run a manual sync from `/admin`. A protected cron endpoint is available at `/api/cron/jobs/sync` and requires `Authorization: Bearer <CRON_SECRET>`. Configure a daily hosting-platform schedule only after setting the provider key and cron secret.
