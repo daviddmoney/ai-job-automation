@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ message: "Invalid job reference." }, { status: 400 });
-  const job = await prisma.jobPosting.findFirst({ where: { id: parsed.data.jobPostingId, status: "ACTIVE", country: "Nigeria", OR: [{ workMode: { in: ["ONSITE", "HYBRID"] }, city: "Lagos" }, { workMode: "REMOTE", eligibleLocations: { hasSome: ["Lagos", "Lagos, Nigeria"] } }] }, select: { id: true } });
+  const job = await prisma.jobPosting.findFirst({ where: { id: parsed.data.jobPostingId, status: "ACTIVE", country: "Nigeria", AND: [{ OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }], OR: [{ workMode: { in: ["ONSITE", "HYBRID"] }, city: "Lagos" }, { workMode: "REMOTE", eligibleLocations: { hasSome: ["Lagos", "Lagos, Nigeria"] } }] }, select: { id: true } });
   if (!job) return NextResponse.json({ message: "This opportunity is not available in the Lagos job list." }, { status: 404 });
   await prisma.savedJob.upsert({ where: { userId_jobPostingId: { userId: session.user.id, jobPostingId: job.id } }, create: { userId: session.user.id, jobPostingId: job.id }, update: {} });
   return NextResponse.json({ message: "Job saved to your private list." }, { status: 201 });
