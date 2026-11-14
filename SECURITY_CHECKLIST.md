@@ -30,7 +30,7 @@
 - [ ] Complete ownership-scoped CRUD tests for every private resource.
 - [ ] Review OAuth account linking and verified-email handling with real provider configuration.
 - [x] Ignore spoofable X-Forwarded-For / X-Real-IP; trust only an edge-injected client-IP header with shared secret. Configure the proxy rule before relying on per-IP limits.
-- [x] Enforce streamed JSON body byte limits on registration, applications and saved-jobs endpoints; audit remaining JSON endpoints before launch.
+- [x] Enforce streamed JSON body byte limits across explicit JSON request endpoints: registration, verification, 2FA, preferences, applications, saved jobs, translation, recovery-code generation and admin import.
 - [x] Add atomic TOTP time-counter replay protection and one-time TOTP recovery-code consumption.
 - [x] Add authenticated recovery-code regeneration requiring password and fresh TOTP; codes are returned once and stored hashed.
 - [ ] Add audited 2FA disable/recovery flow for users who lose both authenticator and recovery codes.
