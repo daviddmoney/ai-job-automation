@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
     if (adapters.length === 0) throw new Error("NoJobSourcesConfigured");
 
     const totals = await syncJobSources(adapters, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-    const completed = await completeJobSyncTask(task.id, task.lockToken, totals);
+    // Prisma's JSON input type requires JSON-compatible object index signatures.
+    // Round-tripping through JSON validates and normalizes the persisted payload.
+    const persistedTotals = JSON.parse(JSON.stringify(totals));
+    const completed = await completeJobSyncTask(task.id, task.lockToken, persistedTotals);
     if (completed.count !== 1) {
       return NextResponse.json({ message: "Task lease expired before completion." }, { status: 409 });
     }
