@@ -18,7 +18,8 @@
 - [x] Add resend-verification workflow.
 - [ ] Add recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
 - [x] Add staff-only `/admin` route guarded by a database-backed role check.
-- [ ] Add an audited staff provisioning process.
+- [x] Add a controlled staff-promotion script restricted to verified accounts; execute only through trusted admin environment.
+- [ ] Add durable audit-event recording for staff promotions and staff actions.
 - [ ] Add ownership-scoped CRUD APIs and tests proving users cannot access other users' data.
 - [ ] Review OAuth account linking and verified-email handling with real provider configuration.
 - [x] Add same-origin checks to registration, verification, resend, email-OTP, and 2FA configuration endpoints.
