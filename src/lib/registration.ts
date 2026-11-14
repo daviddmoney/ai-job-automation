@@ -62,3 +62,15 @@ export async function verifyAccountEmail(input: unknown) {
   await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date(), emailVerificationCodeHash: null, emailVerificationExpiresAt: null, emailVerificationAttempts: 0 } });
   return { ok: true as const, message: "Email verified. You can now sign in." };
 }
+
+export async function resendAccountVerification(input: unknown) {
+  const parsed = z.object({ email: z.string().trim().email().max(254) }).safeParse(input);
+  if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email address." };
+  const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+  if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  await prisma.user.update({ where: { id: user.id }, data: { emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000), emailVerificationAttempts: 0 } });
+  try { await sendVerificationCode(user.email, code); }
+  catch { return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." }; }
+  return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
+}
