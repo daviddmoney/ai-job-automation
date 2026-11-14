@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccountEmail } from "@/lib/registration";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { readLimitedJson } from "@/lib/request-body";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
