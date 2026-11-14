@@ -13,16 +13,20 @@ concurrency:
 
 jobs:
   dependency-review:
-    name: Review dependency changes
+    name: Review dependency vulnerabilities
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Review dependency changes against GitHub Advisory Database
-        uses: actions/dependency-review-action@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          # Fail the PR if newly introduced dependencies have high or critical
-          # vulnerabilities. Review both runtime and development dependencies.
-          fail-on-severity: high
-          fail-on-scopes: runtime,development
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Audit runtime and development dependencies
+        run: npm audit --audit-level=high
