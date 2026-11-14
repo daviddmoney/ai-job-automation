@@ -12,7 +12,7 @@ const credentialsSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(1).max(256),
   secondFactorMethod: z.enum(["EMAIL", "TOTP"]).optional(),
-  secondFactorCode: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]{6}$/).optional())
+  secondFactorCode: z.string().regex(/^[0-9]{6}$/).optional()
 });
 
 const providers = [
@@ -22,7 +22,7 @@ const providers = [
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
       secondFactorMethod: { label: "Second-factor method", type: "text" },
-  secondFactorCode: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[0-9]{6}$/).optional())
+      secondFactorCode: { label: "Second-factor code", type: "text" }
     },
     async authorize(rawCredentials, request) {
       const parsed = credentialsSchema.safeParse(rawCredentials);
