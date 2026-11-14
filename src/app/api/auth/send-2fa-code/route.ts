@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { newEmailOtp, otpDigest } from "@/lib/two-factor";
 import { sendSecondFactorCode } from "@/lib/email";
+import { readLimitedJson } from "@/lib/request-body";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -11,8 +12,9 @@ export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
   try { if (!origin || new URL(origin).host !== request.headers.get("host")) return NextResponse.json({ message: "Request rejected." }, { status: 403 }); }
   catch { return NextResponse.json({ message: "Request rejected." }, { status: 403 }); }
-  const body = await request.json().catch(() => null);
-  const parsed = z.object({ email: z.string().email().max(254), password: z.string().min(1).max(256) }).safeParse(body);
+  const body = await readLimitedJson(request, 8 * 1024);
+  if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
+  const parsed = z.object({ email: z.string().email().max(254), password: z.string().min(1).max(256) }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "Enter your email and password first." }, { status: 400 });
   try {
     const key = requestRateLimitKey(request, "send-2fa", parsed.data.email);
