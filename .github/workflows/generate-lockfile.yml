@@ -1,0 +1,60 @@
+name: Generate and commit npm lockfile
+
+on:
+  push:
+    branches:
+      - feature/global-multilingual-security
+    paths:
+      - package.json
+      - .github/workflows/generate-lockfile.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: generate-lockfile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Generate lockfile from package.json
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+      - name: Verify clean installation and application checks
+        run: |
+          npm ci
+          npx prisma generate
+          npm run typecheck
+          npm run build
+
+      - name: Commit lockfile when changed
+        shell: bash
+        run: |
+          if [ ! -s package-lock.json ]; then
+            echo "package-lock.json was not generated."
+            exit 1
+          fi
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json is already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Add generated npm package lockfile"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
