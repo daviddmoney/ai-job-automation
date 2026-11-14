@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
+import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
 
 export const runtime = "nodejs";
@@ -20,6 +21,10 @@ export async function POST(request: NextRequest) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
+  try {
+    const key = requestRateLimitKey(request, "two-factor-recovery-codes", session.user.id);
+    if (!(await consumeRateLimit(key, 3, 3600))) return NextResponse.json({ message: "Recovery-code generation limit reached. Try again later." }, { status: 429 });
+  } catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
   const body = await readLimitedJson(request, 4 * 1024);
   if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
   if (!validBody(body.data)) return NextResponse.json({ message: "Enter your password and current six-digit authenticator code." }, { status: 400 });
