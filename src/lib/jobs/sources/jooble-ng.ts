@@ -69,7 +69,8 @@ export class JoobleNigeriaAdapter implements JobSourceAdapter {
         locationText: /nigeria/i.test(location) ? location : location + ", Nigeria",
         country: "Nigeria",
         workMode: remote ? "REMOTE" : hybrid ? "HYBRID" : "ONSITE",
-        eligibleLocations: remote ? [location, "Nigeria"] : [],
+        // Jooble does not expose verified remote-eligible countries in this response.
+        eligibleLocations: [],
         publishedAt: updated?.toISOString() ?? null,
         status: "ACTIVE"
       });
