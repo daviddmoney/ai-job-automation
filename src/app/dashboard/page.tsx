@@ -10,6 +10,7 @@ export default async function DashboardPage() {
     <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 28 }}>
       <a href="/jobs" style={tile}><h2>Lagos job search</h2><p>Browse recent opportunities located in Lagos.</p></a>
       <a href="/saved-jobs" style={tile}><h2>Saved jobs</h2><p>View opportunities saved privately to your account.</p></a>
+      <a href="/applications" style={tile}><h2>Application tracker</h2><p>Track preparation, review, submission, and interview progress.</p></a>
       <a href="/security/2fa" style={tile}><h2>Account security</h2><p>Configure email or authenticator two-factor authentication.</p></a>
       {user.role === "STAFF" && <a href="/admin" style={tile}><h2>Staff administration</h2><p>Access staff-only tools.</p></a>}
     </section>
