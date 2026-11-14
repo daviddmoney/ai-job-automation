@@ -26,9 +26,19 @@ jobs:
 
       - uses: github/codeql-action/autobuild@v4
 
-      - uses: github/codeql-action/analyze@v4
+      - name: Analyze and save SARIF report
+        uses: github/codeql-action/analyze@v4
         with:
-          # This private repository currently has GitHub code scanning disabled.
-          # Keep running CodeQL queries in CI, but skip SARIF upload until the
-          # repository has code-scanning entitlement and the feature is enabled.
+          # Keep analysis enabled. GitHub code-scanning upload is not available
+          # on this private repository until Code Security is enabled.
           upload: false
+          post-processed-sarif-path: ${{ runner.temp }}/codeql-sarif
+
+      - name: Upload CodeQL SARIF report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif-${{ github.run_number }}
+          path: ${{ runner.temp }}/codeql-sarif/
+          if-no-files-found: warn
+          retention-days: 30
