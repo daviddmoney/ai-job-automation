@@ -23,7 +23,7 @@
 - MFA/passkeys for administrators; no shared admin accounts.
 - Never expose secrets in source, logs, build artifacts or browser bundles.
 - Use a managed secret store and rotate credentials after suspected exposure.
-- Never trust X-Forwarded-For or X-Real-IP directly. Set TRUSTED_PROXY_HEADER_SECRET and configure the edge proxy to overwrite x-verified-client-ip and inject the matching x-trusted-proxy-token; otherwise client IP is treated as unknown.
+- Never trust X-Forwarded-For or X-Real-IP directly. Set TRUSTED_PROXY_HEADER_SECRET and configure the edge proxy to strip any incoming x-verified-client-ip / x-trusted-proxy-token headers, overwrite x-verified-client-ip with the connecting client IP, and inject the matching x-trusted-proxy-token. Restrict direct origin access so requests cannot bypass that proxy. Until this is verified, the application treats client IP as unknown.
 - Rate-limit authentication, translation, imports and expensive endpoints.
 - Use secure cookies, CSRF/origin protections, CSP, HSTS in production, output encoding and server-side validation.
 - Quarantine and scan uploaded documents before availability.
@@ -42,3 +42,12 @@ No tool guarantees prevention of every attack. Automated scans do not replace co
 - The workflow sends a bounded pull-request diff (maximum 60,000 characters) to the DeepSeek Chat Completions API using the `deepseek-flash` model, then posts the returned review as a PR comment.
 - Do not place API keys in source files, workflow YAML, issue comments, or chat messages. Review third-party data-processing and retention terms before enabling this for confidential code.
 - DeepSeek findings are a second opinion and must be verified; they are not a substitute for tests or human review.
+
+
+## Trusted proxy configuration gate
+
+The application reads only these two headers for client IP rate limiting:
+- `x-verified-client-ip`: the edge proxy's observed client IP, not a client-supplied forwarded chain.
+- `x-trusted-proxy-token`: a static shared secret injected by the trusted edge.
+
+Set `TRUSTED_PROXY_HEADER_SECRET` in Railway only after configuring the proxy to remove incoming copies of both headers and set fresh values. Keep the secret out of source control. Restrict direct access to the Railway origin; otherwise a caller could bypass the proxy policy. If the edge provider cannot reliably overwrite/inject these headers or the origin cannot be restricted, leave the secret unset and use an alternative trusted client-IP integration rather than trusting X-Forwarded-For.
