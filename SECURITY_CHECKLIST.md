@@ -29,8 +29,11 @@
 - [ ] Add durable audit events for staff actions and security events.
 - [ ] Complete ownership-scoped CRUD tests for every private resource.
 - [ ] Review OAuth account linking and verified-email handling with real provider configuration.
-- [ ] Add rate-limit cleanup, abuse monitoring and trusted-proxy IP validation.
-- [ ] Add recovery codes and secure 2FA recovery/disable flows.
+- [x] Ignore spoofable X-Forwarded-For / X-Real-IP; trust only an edge-injected client-IP header with shared secret. Configure the proxy rule before relying on per-IP limits.
+- [x] Enforce streamed JSON body byte limits on registration, applications and saved-jobs endpoints; audit remaining JSON endpoints before launch.
+- [x] Add atomic TOTP time-counter replay protection and one-time TOTP recovery-code consumption.
+- [x] Add authenticated recovery-code regeneration requiring password and fresh TOTP; codes are returned once and stored hashed.
+- [ ] Add audited 2FA disable/recovery flow for users who lose both authenticator and recovery codes.
 - [ ] Add malware scanning and quarantine for uploaded files.
 - [ ] Add CSP and production HSTS after validating external resources.
 - [ ] Configure Wazuh/Sentinel or equivalent monitoring appropriate to scale.
