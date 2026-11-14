@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  STAFF
+}
+
+enum ApplicationStatus {
+  SAVED
+  PREPARING
+  READY_FOR_REVIEW
+  SUBMITTED
+  INTERVIEW
+  REJECTED
+  OFFER
+  WITHDRAWN
+}
+
+model User {
+  id               String        @id @default(cuid())
+  email            String        @unique
+  name             String?
+  passwordHash     String?
+  role             UserRole      @default(USER)
+  emailVerifiedAt  DateTime?
+  twoFactorEnabled Boolean       @default(false)
+  twoFactorSecret  String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  profile          JobProfile?
+  applications     Application[]
+  auditEvents      AuditEvent[]
+}
+
+model JobProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline        String?
+  location        String   @default("Lagos, Nigeria")
+  cvFileKey       String?
+  skills          String[]
+  experienceYears Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Application {
+  id           String            @id @default(cuid())
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company      String
+  jobTitle     String
+  jobUrl       String?
+  workLocation String
+  workMode     String?
+  source       String?
+  publishedAt  DateTime?
+  status       ApplicationStatus @default(SAVED)
+  notes        String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([userId, status])
+  @@index([userId, createdAt])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  resource   String?
+  resourceId String?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
