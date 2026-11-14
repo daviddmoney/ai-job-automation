@@ -31,14 +31,12 @@ export async function GET(request: NextRequest) {
     if (adapters.length === 0) throw new Error("NoJobSourcesConfigured");
 
     const totals = await syncJobSources(adapters, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-    if (totals.sourceErrors > 0) throw new Error("PartialJobSyncFailure");
-
     const completed = await completeJobSyncTask(task.id, task.lockToken, totals);
     if (completed.count !== 1) {
       return NextResponse.json({ message: "Task lease expired before completion." }, { status: 409 });
     }
 
-    return NextResponse.json({ message: "Background job sync completed.", taskId: task.id, totals });
+    return NextResponse.json({ message: totals.sourceErrors > 0 ? "Job sync completed with provider or board failures recorded; successful boards were retained." : "Background job sync completed.", taskId: task.id, totals });
   } catch (error) {
     try {
       const updated = await failJobSyncTask(task.id, task.lockToken, task.attempts, error);
