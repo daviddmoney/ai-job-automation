@@ -38,7 +38,7 @@ No tool guarantees prevention of every attack. Automated scans do not replace co
 
 - Workflow: `.github/workflows/deepseek-review.yml`.
 - Create a DeepSeek API key in the DeepSeek developer platform and store it only as the GitHub Actions repository secret `DEEPSEEK_API_KEY`.
-- Set the repository Actions variable `ENABLE_DEEPSEEK_REVIEW=true` to enable automatic reviews on pull-request updates. Alternatively, run the workflow manually and supply a pull-request number.
+- Set the repository Actions variable `ENABLE_DEEPSEEK_REVIEW=true` to enable automatic reviews on pull-request updates. After this workflow is merged into the default branch, it can also be run manually with a pull-request number.
 - The workflow sends a bounded pull-request diff (maximum 60,000 characters) to the DeepSeek Chat Completions API using the `deepseek-flash` model, then posts the returned review as a PR comment.
 - Do not place API keys in source files, workflow YAML, issue comments, or chat messages. Review third-party data-processing and retention terms before enabling this for confidential code.
 - DeepSeek findings are a second opinion and must be verified; they are not a substitute for tests or human review.
