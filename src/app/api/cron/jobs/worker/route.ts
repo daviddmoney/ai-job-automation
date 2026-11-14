@@ -32,8 +32,13 @@ export async function GET(request: NextRequest) {
   let renewalInFlight = false;
   const renewLease = async () => {
     if (leaseLost) return false;
-    const renewed = await renewJobSyncTaskLease(task.id, task.lockToken!);
-    if (renewed.count !== 1) leaseLost = true;
+    try {
+      const renewed = await renewJobSyncTaskLease(task.id, task.lockToken!);
+      if (renewed.count !== 1) leaseLost = true;
+    } catch {
+      // If ownership cannot be confirmed, fail closed and prohibit further writes.
+      leaseLost = true;
+    }
     return !leaseLost;
   };
   const assertLease = async () => {
