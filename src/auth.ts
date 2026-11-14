@@ -20,7 +20,7 @@ const providers = [
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
       const user = await prisma.user.findUnique({ where: { email } });
-      if (!user?.passwordHash) return null;
+      if (!user?.passwordHash || !user.emailVerified) return null;
       try {
         if (!(await verify(user.passwordHash, parsed.data.password))) return null;
       } catch {
