@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { isSameOriginRequest } from "@/lib/request-security";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { newEmailOtp, otpDigest } from "@/lib/two-factor";
@@ -7,6 +8,7 @@ import { sendSecondFactorCode } from "@/lib/email";
 
 export const runtime = "nodejs";
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
   try { const key = requestRateLimitKey(request, "email-2fa-start", session.user.id); if (!(await consumeRateLimit(key, 3, 600))) return NextResponse.json({ message: "Too many code requests. Try again later." }, { status: 429 }); } catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
