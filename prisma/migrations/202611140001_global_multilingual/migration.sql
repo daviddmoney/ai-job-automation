@@ -72,7 +72,6 @@ CREATE TABLE IF NOT EXISTS "JobPosting" (
 CREATE UNIQUE INDEX IF NOT EXISTS "JobPosting_source_sourceJobId_key" ON "JobPosting"("source", "sourceJobId");
 CREATE INDEX IF NOT EXISTS "JobPosting_status_publishedAt_idx" ON "JobPosting"("status", "publishedAt");
 CREATE INDEX IF NOT EXISTS "JobPosting_city_state_country_idx" ON "JobPosting"("city", "state", "country");
-CREATE INDEX IF NOT EXISTS "JobPosting_country_workMode_status_idx" ON "JobPosting"("country", "workMode", "status");
 ALTER TABLE "JobPosting" ADD COLUMN IF NOT EXISTS "sourceLanguage" TEXT;
 ALTER TABLE "JobPosting" ADD COLUMN IF NOT EXISTS "jobCategory" TEXT;
 ALTER TABLE "JobProfile" ALTER COLUMN "location" SET DEFAULT 'Anywhere';

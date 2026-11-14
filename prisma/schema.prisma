@@ -1,24 +1,29 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 enum UserRole {
   USER
   STAFF
 }
+
 enum JobWorkMode {
   ONSITE
   HYBRID
   REMOTE
   FLEXIBLE
 }
+
 enum JobPostingStatus {
   ACTIVE
   CLOSED
 }
+
 enum ApplicationStatus {
   SAVED
   PREPARING
@@ -29,35 +34,37 @@ enum ApplicationStatus {
   OFFER
   WITHDRAWN
 }
+
 model User {
-  id                         String              @id @default(cuid())
-  name                       String?
-  email                      String              @unique
-  emailVerified              DateTime?
-  image                      String?
-  passwordHash               String?
-  role                       UserRole            @default(USER)
-  twoFactorEnabled           Boolean             @default(false)
-  twoFactorMethod            String?
-  twoFactorEmailCodeHash     String?
+  id                          String              @id @default(cuid())
+  name                        String?
+  email                       String              @unique
+  emailVerified               DateTime?
+  image                       String?
+  passwordHash                String?
+  role                        UserRole            @default(USER)
+  twoFactorEnabled            Boolean             @default(false)
+  twoFactorMethod             String?
+  twoFactorEmailCodeHash      String?
   twoFactorEmailCodeExpiresAt DateTime?
-  twoFactorEmailCodeAttempts Int                 @default(0)
+  twoFactorEmailCodeAttempts  Int                 @default(0)
   twoFactorPendingSecretCipher String?
-  twoFactorSecretCipher      String?
-  recoveryCodeHashes         String[]            @default([])
-  emailVerificationCodeHash  String?
-  emailVerificationExpiresAt DateTime?
-  emailVerificationAttempts  Int                 @default(0)
-  createdAt                  DateTime            @default(now())
-  updatedAt                  DateTime            @updatedAt
-  accounts                   Account[]
-  sessions                   Session[]
-  profile                    JobProfile?
-  jobPreferences             UserJobPreference?
-  applications               Application[]
-  savedJobs                  SavedJob[]
-  auditEvents                AuditEvent[]
+  twoFactorSecretCipher       String?
+  recoveryCodeHashes          String[]            @default([])
+  emailVerificationCodeHash   String?
+  emailVerificationExpiresAt  DateTime?
+  emailVerificationAttempts   Int                 @default(0)
+  createdAt                   DateTime            @default(now())
+  updatedAt                   DateTime            @updatedAt
+  accounts                    Account[]
+  sessions                    Session[]
+  profile                     JobProfile?
+  jobPreferences              UserJobPreference?
+  applications                Application[]
+  savedJobs                   SavedJob[]
+  auditEvents                 AuditEvent[]
 }
+
 model Account {
   userId            String
   type              String
@@ -71,22 +78,28 @@ model Account {
   id_token          String? @db.Text
   session_state     String?
   user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@id([provider, providerAccountId])
   @@index([userId])
 }
+
 model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
+
 model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
+
 model JobProfile {
   id              String   @id @default(cuid())
   userId          String   @unique
@@ -99,6 +112,7 @@ model JobProfile {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
 model UserJobPreference {
   id                     String        @id @default(cuid())
   userId                 String        @unique
@@ -119,6 +133,7 @@ model UserJobPreference {
   createdAt              DateTime      @default(now())
   updatedAt              DateTime      @updatedAt
 }
+
 model JobPosting {
   id                String           @id @default(cuid())
   source            String
@@ -146,11 +161,14 @@ model JobPosting {
   updatedAt         DateTime         @updatedAt
   savedBy           SavedJob[]
   applications      Application[]
+
   @@unique([source, sourceJobId])
   @@index([status, publishedAt])
   @@index([city, state, country])
-  @@index([country, workMode, status])
+  @@index([country, status, city, publishedAt])
+  @@index([country, status, workMode, publishedAt])
 }
+
 model SavedJob {
   id           String     @id @default(cuid())
   userId       String
@@ -158,9 +176,11 @@ model SavedJob {
   createdAt    DateTime   @default(now())
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobPosting   JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
   @@unique([userId, jobPostingId])
   @@index([userId, createdAt])
 }
+
 model Application {
   id           String            @id @default(cuid())
   userId       String
@@ -178,10 +198,12 @@ model Application {
   notes        String?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
+
   @@unique([userId, jobPostingId])
   @@index([userId, status])
   @@index([userId, createdAt])
 }
+
 model AuditEvent {
   id         String   @id @default(cuid())
   userId     String?
@@ -191,11 +213,14 @@ model AuditEvent {
   resourceId String?
   ipHash     String?
   createdAt  DateTime @default(now())
+
   @@index([userId, createdAt])
 }
+
 model RateLimitBucket {
   key     String   @id
   count   Int      @default(0)
   resetAt DateTime
+
   @@index([resetAt])
 }
