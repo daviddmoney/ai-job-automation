@@ -16,6 +16,36 @@ interface JoobleResponse { jobs?: JoobleJob[]; totalCount?: number; }
 
 const SEARCH_TERMS = ["accountant", "accounting", "audit", "finance", "accounts assistant"];
 const REQUEST_TIMEOUT_MS = 8_000;
+const MAX_ATTEMPTS = 3;
+
+async function fetchJooble(endpoint: string, keywords: string): Promise<JoobleResponse> {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ keywords, location: "Lagos", radius: "0", page: "1", ResultOnPage: "50", companysearch: false }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      });
+      if (response.ok) return await response.json() as JoobleResponse;
+      if (attempt === MAX_ATTEMPTS || (response.status < 500 && response.status !== 429)) {
+        throw new Error(`Jooble request failed: ${response.status}`);
+      }
+      const retryAfter = Number(response.headers.get("retry-after"));
+      const delay = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(retryAfter * 1000, 2_000)
+        : 250 * 2 ** (attempt - 1);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } catch (error) {
+      if (attempt === MAX_ATTEMPTS) throw error;
+      const transient = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError" || error.message.includes("fetch"));
+      if (!transient) throw error;
+      await new Promise(resolve => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
+    }
+  }
+  throw new Error("Jooble request exhausted retries.");
+}
 
 export class JoobleNigeriaAdapter implements JobSourceAdapter {
   readonly source = "jooble-ng";
@@ -28,17 +58,7 @@ export class JoobleNigeriaAdapter implements JobSourceAdapter {
     // Independent keyword searches run concurrently instead of adding their
     // network latency together. A failed keyword search does not discard
     // successful results from the other searches.
-    const responses = await Promise.allSettled(SEARCH_TERMS.map(async (keywords) => {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ keywords, location: "Lagos", radius: "0", page: "1", ResultOnPage: "50", companysearch: false }),
-        cache: "no-store",
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
-      });
-      if (!response.ok) throw new Error(`Jooble request failed: ${response.status}`);
-      return await response.json() as JoobleResponse;
-    }));
+    const responses = await Promise.allSettled(SEARCH_TERMS.map((keywords) => fetchJooble(endpoint, keywords)));
 
     const successful = responses.filter((result): result is PromiseFulfilledResult<JoobleResponse> => result.status === "fulfilled");
     if (successful.length === 0 && responses.length > 0) {
