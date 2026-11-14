@@ -1,32 +1,40 @@
 # Security implementation checklist
 
-## Implemented in this scaffold
-- [x] Private repository and no committed production secrets.
-- [x] Registration assigns USER role on the server; public form has no role field.
-- [x] Passwords hashed with Argon2id.
-- [x] Email verification challenge is hashed, expires after ten minutes, and has a per-account attempt limit.
-- [x] Password sign-in requires a verified email.
-- [x] TOTP authenticator secrets are encrypted with AES-256-GCM using a separate environment key.
-- [x] Email OTP and TOTP second-factor checks are wired into credential sign-in.
-- [x] OAuth cannot bypass enabled 2FA (OAuth sign-in is denied for accounts with 2FA enabled pending an OAuth challenge flow).
-- [x] Server-side helper reads current user role from the database for staff authorization.
-- [x] Security headers are configured in Next.js.
+## Existing application controls observed in repository
+- [x] Private repository and no production secrets in inspected source tree.
+- [x] Registration assigns USER role server-side.
+- [x] Argon2id password hashing.
+- [x] Email verification challenge hashing, expiry and attempt limits.
+- [x] AES-256-GCM encrypted TOTP secrets.
+- [x] Email OTP and TOTP second-factor checks.
+- [x] Database-backed staff authorization.
+- [x] Security headers.
+- [x] Rate limits and same-origin checks on inspected sensitive endpoints.
+
+## Repository automation
+- [x] CodeQL workflow.
+- [x] Dependency review workflow.
+- [x] Dependabot configuration.
+- [x] npm audit and Semgrep scans.
+- [x] Gitleaks secret scan.
+- [x] Optional Snyk scan.
 
 ## Required before public launch
-- [x] Add persistent IP/account rate limiting to registration, password login, email verification/resend, email OTP delivery, and 2FA setup/confirmation endpoints.
-- [ ] Add rate-limit bucket cleanup, abuse monitoring, and validate proxy IP extraction in production.
-- [x] Add resend-verification workflow.
-- [ ] Add recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
-- [x] Add staff-only `/admin` route guarded by a database-backed role check.
-- [x] Add a controlled staff-promotion script restricted to verified accounts; execute only through trusted admin environment.
-- [ ] Add durable audit-event recording for staff promotions and staff actions.
-- [ ] Add ownership-scoped CRUD APIs and tests proving users cannot access other users' data.
+- [ ] Run workflows and remediate findings.
+- [ ] Enable GitHub secret scanning, push protection, Dependabot alerts and private vulnerability reporting in repository settings where available.
+- [ ] Configure Cloudflare WAF/DDoS/bot controls and restrict direct origin access.
+- [ ] Configure production secrets in a managed secret store; rotate any exposed credentials.
+- [ ] Add durable audit events for staff actions and security events.
+- [ ] Complete ownership-scoped CRUD tests for every private resource.
 - [ ] Review OAuth account linking and verified-email handling with real provider configuration.
-- [x] Add same-origin checks to registration, verification, resend, email-OTP, and 2FA configuration endpoints.
-- [ ] Review Auth.js cookie/CSRF settings and keep origin checks on future state-changing endpoints.
-- [ ] Add automated unit, integration, and end-to-end tests, including concurrent OTP replay attempts.
-- [ ] Configure production database, email delivery, AUTH_SECRET, TOTP_ENCRYPTION_KEY, and OAuth credentials in the hosting provider's secret manager.
-- [ ] Run Prisma migrations, lint, typecheck, and production build against a staging environment.
-- [ ] Complete privacy, retention, backup, incident-response, and vulnerability reviews.
+- [ ] Add rate-limit cleanup, abuse monitoring and trusted-proxy IP validation.
+- [ ] Add recovery codes and secure 2FA recovery/disable flows.
+- [ ] Add malware scanning and quarantine for uploaded files.
+- [ ] Add CSP and production HSTS after validating external resources.
+- [ ] Configure Wazuh/Sentinel or equivalent monitoring appropriate to scale.
+- [ ] Configure encrypted backups, point-in-time recovery and test restores.
+- [ ] Complete privacy, retention, data-processing and cross-border transfer reviews.
+- [ ] Run independent penetration testing and remediate findings.
+- [ ] Run Prisma migrations, typecheck and production build in staging.
 
-This checklist is not a security certification. Do not use real customer data until the outstanding items are addressed and tested.
+This checklist is not a security certification. Do not use real customer data until launch blockers are resolved and tested.

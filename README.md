@@ -1,50 +1,42 @@
 # AI Job Automation
 
-A secure multi-user SaaS platform for discovering and managing job opportunities, initially focused on Lagos, Nigeria.
+A secure, multi-user, global AI job discovery and application-management platform.
 
 ## Product requirements
-- Search newly published or newly opened recruitment opportunities located in Lagos only.
-- Include Lagos-based roles and clearly stated Lagos hybrid/remote roles; exclude roles located elsewhere.
-- Keep each user's profile, CVs, saved jobs, applications, and settings private to that account.
-- Require human review and approval before an application is submitted or an email is sent.
+- Discover jobs across countries and regions; never hard-code one city or country as a global restriction.
+- Support on-site, hybrid, remote and flexible work.
+- Let users choose countries, regions, cities, employment types, job categories and languages.
+- Preserve original job descriptions and source-language metadata.
+- Support multilingual job discovery and two-way applicant/employer translation.
+- Require human review before applications or external messages are sent.
+- Keep each user's profile, CV, saved jobs, applications and preferences private.
 
-## Security baseline
-- Support email/password and social sign-in.
-- Support email OTP and authenticator-app TOTP as two-factor options.
-- Restrict administrator access to authorised staff accounts.
-- Enforce server-side authorization on every protected operation.
-- Scope database reads and writes to the authenticated user's ownership.
-- Use secure HTTP-only, same-site session cookies and CSRF protections.
-- Hash passwords with Argon2id; validate inputs; rate-limit sensitive endpoints; audit security events.
-- Keep secrets in environment variables. Never commit credentials.
+## Stack
+Next.js App Router, TypeScript, PostgreSQL, Prisma, Auth.js, Zod and Nodemailer.
 
-## Proposed stack
-Next.js App Router, TypeScript, PostgreSQL, Prisma, Auth.js, Zod, and Tailwind CSS.
+## Job discovery
+Provider-independent adapters are available for Greenhouse, Lever and Ashby public job boards. Jooble Nigeria remains an optional supplementary source. Configure approved employer board identifiers in server-side environment variables. These APIs do not provide universal access to every employer or job board; coverage depends on configured boards, permissions and provider terms.
+
+See JOB_DISCOVERY.md.
+
+## Translation
+The server-side translation gateway supports Google Cloud Translation, DeepL, Microsoft Azure Translator, Amazon Translate and OpenAI. Configure one or more credentials and set TRANSLATION_PROVIDER_ORDER. Review translations before using them in applications or employer communications.
+
+See MULTILINGUAL_ARCHITECTURE.md.
+
+## Security
+Repository automation includes CodeQL, dependency review, Dependabot, npm audit, Semgrep, Gitleaks and optional Snyk scanning. Cloudflare, Wazuh and Microsoft Sentinel require separate account and infrastructure configuration.
+
+See SECURITY_INTEGRATIONS.md and SECURITY_CHECKLIST.md.
 
 ## Local setup
 1. Install Node.js LTS and PostgreSQL.
-2. Copy `.env.example` to `.env.local` and supply local values.
-3. Run `npm install`.
-4. Run `npm run db:generate`.
-5. Configure the database and run `npm run db:migrate`.
-6. Run `npm run dev`.
+2. Copy .env.example to .env.local and configure local values.
+3. Run npm install.
+4. Run npm run db:generate.
+5. Run npm run db:migrate.
+6. Run npm run dev.
 
-## Status
-Initial scaffold. Authentication providers, database migrations, job-source integrations, automated tests, and production deployment still need configuration and verification.
+After pulling schema changes, run prisma migrate deploy in staging/production and regenerate Prisma Client.
 
-The application must not submit applications, send emails, or disclose personal information without explicit user approval.
-
-## Authentication routes
-- `/register` — create a standard user account.
-- `/verify-email` — verify the email address using the emailed code.
-- `/signin` — sign in with password and, when enabled, a second-factor code.
-- `/security/2fa` — enable email OTP or authenticator-app TOTP after signing in.
-- `/dashboard` — protected account area.
-
-See [AUTHENTICATION.md](./AUTHENTICATION.md) and [SECURITY_CHECKLIST.md](./SECURITY_CHECKLIST.md) for configuration and launch blockers.
-
-## Job discovery
-See [JOB_DISCOVERY.md](./JOB_DISCOVERY.md) for the strict Lagos location policy, staff import contract, saved-jobs privacy model, and application tracker. Jooble Nigeria adapter code is present; a valid provider API key is still required to retrieve live vacancies.
-
-## Staff provisioning
-A verified account can be promoted through the controlled `npm run promote-staff` script using `STAFF_EMAIL` and `CONFIRM_STAFF_PROMOTION=YES` in the deployment/admin environment. Never expose these variables to the browser or public registration.
+Do not use real customer data until security, privacy, ownership-isolation, backup, translation-consent and production deployment checks are complete. This repository is not a security certification. Never commit credentials.
