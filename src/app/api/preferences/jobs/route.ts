@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
+import { readLimitedJson } from "@/lib/request-body";
 export const runtime = "nodejs";
 const language = z.string().trim().min(2).max(20);
 const schema = z.object({
@@ -27,7 +28,9 @@ export async function PUT(request: NextRequest) {
  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
  const session = await auth();
  if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
- const parsed = schema.safeParse(await request.json().catch(() => null));
+ const body = await readLimitedJson(request, 32 * 1024);
+ if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
+ const parsed = schema.safeParse(body.data);
  if (!parsed.success) return NextResponse.json({ message: "Invalid job preferences." }, { status: 400 });
  const preferences = await prisma.userJobPreference.upsert({
   where: { userId: session.user.id }, create: { userId: session.user.id, ...parsed.data }, update: parsed.data
