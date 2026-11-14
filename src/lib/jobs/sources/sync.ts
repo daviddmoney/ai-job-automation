@@ -1,5 +1,6 @@
 import { ingestJob } from "@/lib/jobs/ingest";
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
+import { withJobSyncLeaseGuard } from "@/lib/jobs/sources/lease-guard";
 
 async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
   let nextIndex = 0;
@@ -51,8 +52,10 @@ export async function syncJobSources(
   }
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
     try {
-      await options.beforeIngest?.();
-      const result = await (options.ingest ?? ingestJob)({ ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source });
+      const result = await withJobSyncLeaseGuard(
+        options.beforeIngest ?? (async () => {}),
+        () => (options.ingest ?? ingestJob)({ ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source })
+      );
       if (result.outcome === "created") totals.created++;
       else if (result.outcome === "updated") totals.updated++;
       else totals.invalid++;
