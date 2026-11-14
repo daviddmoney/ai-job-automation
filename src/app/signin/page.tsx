@@ -25,7 +25,7 @@ export default function SignInPage() {
       <button type="submit" style={buttonStyle}>Sign in securely</button>
     </form>
     <form action={googleSignIn} style={{ marginTop: 12 }}><button type="submit" style={{ ...buttonStyle, background: "white", color: "#172033", border: "1px solid #d8deea" }}>Continue with Google</button></form>
-    <p style={{ fontSize: 12, color: "#788397", lineHeight: 1.6, marginTop: 24 }}>Google sign-in is available only after the OAuth credentials have been configured by the administrator.</p>
+    <p style={{ fontSize: 12, color: "#788397", lineHeight: 1.6, marginTop: 24 }}>You must verify your email before signing in with a password. Google sign-in is available only after OAuth credentials are configured.</p>\n    <p style={{ marginTop: 16 }}><a href="/register" style={{ color: "#3657a7" }}>Create an account</a> · <a href="/verify-email" style={{ color: "#3657a7" }}>Verify email</a></p>
   </main>;
 }
 
