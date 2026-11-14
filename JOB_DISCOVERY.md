@@ -12,6 +12,7 @@ A staff-only `POST /api/admin/jobs/import` endpoint accepts between 1 and 100 jo
 ## User experience
 - `/jobs` shows active opportunities published or first discovered within the last 30 days.
 - `/saved-jobs` displays only the signed-in user's saved opportunities.
+- `/applications` tracks each user's own applications and notes; changing a status does not submit anything to an employer.
 - `POST` and `DELETE /api/saved-jobs` use the authenticated session's user ID; the browser cannot specify an owner ID.
 
 ## Not yet connected
