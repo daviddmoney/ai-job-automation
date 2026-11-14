@@ -42,3 +42,9 @@ The application must not submit applications, send emails, or disclose personal 
 - `/dashboard` — protected account area.
 
 See [AUTHENTICATION.md](./AUTHENTICATION.md) and [SECURITY_CHECKLIST.md](./SECURITY_CHECKLIST.md) for configuration and launch blockers.
+
+## Job discovery
+See [JOB_DISCOVERY.md](./JOB_DISCOVERY.md) for the strict Lagos location policy, staff import contract, and saved-jobs privacy model. External job-board feeds are not connected yet.
+
+## Staff provisioning
+A verified account can be promoted through the controlled `npm run promote-staff` script using `STAFF_EMAIL` and `CONFIRM_STAFF_PROMOTION=YES` in the deployment/admin environment. Never expose these variables to the browser or public registration.
