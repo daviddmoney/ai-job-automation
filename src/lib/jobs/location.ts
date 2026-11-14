@@ -19,13 +19,14 @@ export function isLagosOpportunity(input: LagosLocationInput) {
   if (input.workMode === "REMOTE") {
     return (input.eligibleLocations ?? []).some((place) => {
       const value = normalise(place);
-      return value === "lagos" || value === "lagos, nigeria" || value === "lagos nigeria";
+      return value === "lagos" || value === "lagos, nigeria" || value === "lagos nigeria" || value === "lagos state" || value === "lagos state, nigeria";
     });
   }
 
-  const city = normalise(input.city) || normalise(input.locationText.split(",")[0]);
-  const state = normalise(input.state);
-  return city === "lagos" || state === "lagos";
+  const parts = input.locationText.split(",").map((part) => normalise(part));
+  const city = normalise(input.city) || parts[0] || "";
+  const state = normalise(input.state) || (parts.length >= 3 ? parts[1] : "");
+  return city === "lagos" || state === "lagos" || state === "lagos state";
 }
 
 export function canonicalLagosLocation(input: LagosLocationInput) {
