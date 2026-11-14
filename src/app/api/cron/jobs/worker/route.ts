@@ -5,7 +5,8 @@ import { configuredJobAdapters } from "@/lib/jobs/sources/configured";
 import {
   claimNextJobSyncTask,
   completeJobSyncTask,
-  failJobSyncTask
+  failJobSyncTask,
+  renewJobSyncTaskLease
 } from "@/lib/jobs/sources/queue";
 
 export const runtime = "nodejs";
@@ -27,11 +28,34 @@ export async function GET(request: NextRequest) {
   if (!task) return NextResponse.json({ message: "No due job-sync tasks." }, { status: 200 });
   if (!task.lockToken) return NextResponse.json({ message: "Task lease could not be established." }, { status: 409 });
 
+  let leaseLost = false;
+  let renewalInFlight = false;
+  const renewLease = async () => {
+    if (leaseLost) return false;
+    const renewed = await renewJobSyncTaskLease(task.id, task.lockToken!);
+    if (renewed.count !== 1) leaseLost = true;
+    return !leaseLost;
+  };
+  const assertLease = async () => {
+    if (!(await renewLease())) throw new Error("JobSyncLeaseLost");
+  };
+  const heartbeat = setInterval(() => {
+    if (leaseLost || renewalInFlight) return;
+    renewalInFlight = true;
+    void renewLease().catch(() => { leaseLost = true; }).finally(() => { renewalInFlight = false; });
+  }, 30_000);
+  heartbeat.unref?.();
+
   try {
     const adapters = configuredJobAdapters();
     if (adapters.length === 0) throw new Error("NoJobSourcesConfigured");
 
-    const totals = await syncJobSources(adapters, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+    const totals = await syncJobSources(
+      adapters,
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      { beforeIngest: assertLease }
+    );
+    await assertLease();
     // Prisma's JSON input type requires JSON-compatible object index signatures.
     // Round-tripping through JSON validates and normalizes the persisted payload.
     const persistedTotals = JSON.parse(JSON.stringify(totals)) as Prisma.InputJsonValue;
@@ -55,5 +79,7 @@ export async function GET(request: NextRequest) {
       message: task.attempts >= 3 ? "Job sync failed after maximum attempts." : "Job sync failed and was scheduled for retry.",
       taskId: task.id
     }, { status: 502 });
+  } finally {
+    clearInterval(heartbeat);
   }
 }
