@@ -38,7 +38,8 @@ export default async function JobsPage() {
           <div style={{ minWidth: 0, flex: 1 }}>
             <h2 style={{ fontSize: 20, margin: "0 0 6px" }}>{job.title}</h2>
             <p style={{ margin: 0, fontWeight: 700 }}>{job.company}</p>
-            <p style={{ color: "#596579", margin: "8px 0", fontSize: 14 }}>{job.locationText} · {job.workMode.toLowerCase()}</p>
+            <p style={{ color: "#596579", margin: "8px 0", fontSize: 14 }}>{job.locationText} · {job.workMode.toLowerCase()}{job.employmentType ? ` · ${job.employmentType}` : ""}</p>
+            {job.salaryText && <p style={{ margin: "6px 0", fontWeight: 700 }}>{job.salaryText}</p>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><SaveJobButton jobId={job.id} initiallySaved={job.savedBy.length > 0}/><AddToApplicationsButton jobId={job.id}/></div>
         </div>
