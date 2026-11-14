@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { createTotpSecret, encryptTotpSecret, totpUri } from "@/lib/two-factor";
 
 export const runtime = "nodejs";
-export async function POST() {
+export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
+  try { const key = requestRateLimitKey(request, "totp-setup", session.user.id); if (!(await consumeRateLimit(key, 5, 600))) return NextResponse.json({ message: "Too many setup attempts. Try again later." }, { status: 429 }); } catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } });
   if (!user?.email) return NextResponse.json({ message: "Account email unavailable." }, { status: 400 });
   try {
