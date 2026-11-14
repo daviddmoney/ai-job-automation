@@ -15,6 +15,8 @@ Response-time figures are engineering targets, not guarantees. Provider latency,
 - Successful ingestion invalidates the global public-job cache.
 - PostgreSQL indexes support country, city, work-mode, status and publication-date filters.
 - CI runs Prisma Client generation, TypeScript checks and a production build.
+- Job-source synchronization is persisted in a PostgreSQL-backed queue with hourly deduplication, atomic claims, expiring leases, lock tokens, bounded retries and recoverability after worker interruption.
+- Queue enqueueing and queue processing are separate authenticated endpoints, so the scheduler can keep request work bounded.
 
 ## Performance targets to measure
 
@@ -30,10 +32,11 @@ Validate these targets with production-like load tests and telemetry before trea
 ## Remaining production hardening
 1. Measure route, database and provider latency with privacy-safe telemetry.
 2. Confirm production database connection pooling and provider limits.
-3. Add a durable background queue when sync volume or duration warrants it; do not rely on in-process work for long-running production tasks.
-4. Add provider-specific rate limits and circuit breaking based on observed quotas and failures.
-5. Run load tests and review PostgreSQL query plans before adding further indexes.
-6. Deploy migrations through a controlled release pipeline after backup and staging verification.
+3. Add provider-specific rate limits and circuit breaking based on observed quotas and failures.
+4. Run load tests and review PostgreSQL query plans before adding further indexes.
+5. Deploy migrations through a controlled release pipeline after backup and staging verification.
+
+The queue is implemented in code but is not active in production until its migration is applied and both authenticated scheduler endpoints are configured. See [JOB_QUEUE.md](./JOB_QUEUE.md).
 
 ## Security and correctness guardrails
 - Keep API keys and database credentials server-side.
