@@ -45,3 +45,28 @@ test("translation languages are checked against the supported language list", ()
  assert.equal(isSupportedTranslationLanguage("pt-BR"), true);
  assert.equal(isSupportedTranslationLanguage("made-up-language"), false);
 });
+
+
+import { withJobSyncLeaseGuard } from "../src/lib/jobs/sources/lease-guard.ts";
+
+test("a worker that loses its lease cannot write another job posting", async () => {
+ let writes = 0;
+ await assert.rejects(
+  () => withJobSyncLeaseGuard(async () => { throw new Error("JobSyncLeaseLost"); }, async () => { writes++; }),
+  /JobSyncLeaseLost/
+ );
+ assert.equal(writes, 0);
+});
+
+test("job ingestion checks lease ownership before every individual write", async () => {
+ let checks = 0;
+ let writes = 0;
+ const guardedWrite = () => withJobSyncLeaseGuard(async () => {
+  checks++;
+  if (checks === 2) throw new Error("JobSyncLeaseLost");
+ }, async () => { writes++; });
+ await guardedWrite();
+ await assert.rejects(() => guardedWrite(), /JobSyncLeaseLost/);
+ assert.equal(checks, 2);
+ assert.equal(writes, 1);
+});
