@@ -38,7 +38,7 @@ export class JoobleNigeriaAdapter implements JobSourceAdapter {
       for (const job of data.jobs ?? []) {
         const location = (job.location ?? "").trim();
         const title = (job.title ?? "").trim();
-        const details = `${location} ${title}`.toLowerCase();
+        const details = `${location} ${title} ${job.snippet ?? ""}`.toLowerCase();
         const hasLagos = details.includes("lagos");
         const workMode = details.includes("remote") ? "REMOTE" : details.includes("hybrid") ? "HYBRID" : "ONSITE";
         const date = job.updated && !Number.isNaN(Date.parse(job.updated)) ? new Date(job.updated).toISOString() : null;
