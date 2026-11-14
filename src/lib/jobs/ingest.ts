@@ -46,7 +46,7 @@ export async function ingestJob(input: unknown) {
     publishedAt: job.publishedAt ? new Date(job.publishedAt) : null,
     expiresAt: job.expiresAt ? new Date(job.expiresAt) : null,
     status: job.status,
-    ...(existing?.status === "CLOSED" ? { discoveredAt: new Date() } : {})
+    ...(existing?.status === "CLOSED" && job.status === "ACTIVE" ? { discoveredAt: new Date() } : {})
   };
   await prisma.jobPosting.upsert({
     where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
