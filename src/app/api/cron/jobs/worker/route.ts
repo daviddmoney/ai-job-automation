@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { syncJobSources } from "@/lib/jobs/sources/sync";
 import { configuredJobAdapters } from "@/lib/jobs/sources/configured";
 import {
