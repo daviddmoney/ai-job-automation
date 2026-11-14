@@ -1,6 +1,6 @@
 import type { JobWorkMode } from "@prisma/client";
 
-const normalise = (value: string | null | undefined) => (value ?? "").trim().toLowerCase().replace(/\\s+/g, " ");
+const normalise = (value: string | null | undefined) => (value ?? "").trim().toLowerCase().split(" ").filter(Boolean).join(" ");
 
 export interface LagosLocationInput {
   workMode: JobWorkMode;
