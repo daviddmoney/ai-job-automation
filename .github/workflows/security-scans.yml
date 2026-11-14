@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Run npm audit and save JSON report
         shell: bash
         run: |
@@ -73,34 +73,26 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   snyk:
-    if: ${{ vars.ENABLE_SNYK == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check whether the Snyk token is configured
-        id: snyk-token
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify Snyk token is configured
         shell: bash
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
-          if [ -n "$SNYK_TOKEN" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::ENABLE_SNYK is true, but the SNYK_TOKEN repository secret is missing. Snyk scan will be skipped."
+          if [ -z "$SNYK_TOKEN" ]; then
+            echo "::error::SNYK_TOKEN repository secret is missing. Add it under Settings > Secrets and variables > Actions > Repository secrets."
+            exit 1
           fi
-      - uses: actions/setup-node@v4
-        if: steps.snyk-token.outputs.available == 'true'
-        with:
-          node-version: 22
       - name: Install dependencies
-        if: steps.snyk-token.outputs.available == 'true'
-        run: npm install
+        run: npm ci
       - name: Install Snyk CLI
-        if: steps.snyk-token.outputs.available == 'true'
         run: npm install --global snyk
       - name: Run Snyk vulnerability scan
-        if: steps.snyk-token.outputs.available == 'true'
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: snyk test --all-projects --severity-threshold=high
