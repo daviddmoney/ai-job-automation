@@ -17,7 +17,8 @@ export class LeverAdapter implements JobSourceAdapter {
     const remote = mode === "remote" || /remote/.test(location.toLowerCase());
     const hybrid = mode === "hybrid" || /hybrid/.test(location.toLowerCase());
     results.push({ sourceJobId: site + ":" + job.id, title: job.text ?? "Untitled role", company: site,
-     description: job.descriptionPlain ?? null, applicationUrl: job.applyUrl ?? job.hostedUrl ?? null, sourceUrl: job.hostedUrl ?? null,
+     jobCategory: job.categories?.team ?? null, description: job.descriptionPlain ?? null,
+     applicationUrl: job.applyUrl ?? job.hostedUrl ?? null, sourceUrl: job.hostedUrl ?? null,
      locationText: location, workMode: remote ? "REMOTE" : hybrid ? "HYBRID" : "ONSITE",
      eligibleLocations: remote ? (job.categories?.allLocations?.length ? job.categories.allLocations : [location]) : [],
      employmentType: job.categories?.commitment ?? null, publishedAt: published?.toISOString() ?? null, status: "ACTIVE" });

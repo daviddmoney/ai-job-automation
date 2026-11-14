@@ -1,5 +1,5 @@
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
-interface AshbyPosting { id: string; title?: string; location?: string; isRemote?: boolean; workplaceType?: string; employmentType?: string; descriptionPlain?: string; jobUrl?: string; applyUrl?: string; publishedAt?: string; }
+interface AshbyPosting { id: string; title?: string; location?: string; isRemote?: boolean; workplaceType?: string; employmentType?: string; departmentName?: string; descriptionPlain?: string; jobUrl?: string; applyUrl?: string; publishedAt?: string; }
 export class AshbyAdapter implements JobSourceAdapter {
  readonly source = "ashby";
  constructor(private readonly boards: string[]) {}
@@ -17,7 +17,8 @@ export class AshbyAdapter implements JobSourceAdapter {
     const remote = job.isRemote === true || mode === "remote";
     const hybrid = mode === "hybrid";
     results.push({ sourceJobId: board + ":" + job.id, title: job.title ?? "Untitled role", company: board,
-     description: job.descriptionPlain ?? null, applicationUrl: job.applyUrl ?? job.jobUrl ?? null, sourceUrl: job.jobUrl ?? null,
+     jobCategory: job.departmentName ?? null, description: job.descriptionPlain ?? null,
+     applicationUrl: job.applyUrl ?? job.jobUrl ?? null, sourceUrl: job.jobUrl ?? null,
      locationText: location, workMode: remote ? "REMOTE" : hybrid ? "HYBRID" : "ONSITE",
      eligibleLocations: remote ? [location] : [], employmentType: job.employmentType ?? null,
      publishedAt: published?.toISOString() ?? null, status: "ACTIVE" });

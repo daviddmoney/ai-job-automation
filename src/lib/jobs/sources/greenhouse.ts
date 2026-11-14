@@ -17,10 +17,10 @@ export class GreenhouseAdapter implements JobSourceAdapter {
     const remote = /remote|distributed|work from home/.test(lower);
     const hybrid = /hybrid/.test(lower);
     results.push({ sourceJobId: board + ":" + job.id, title: job.title ?? "Untitled role", company: board,
-     description: job.content?.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim() ?? null,
+     jobCategory: job.departments?.map(x => x.name).filter(Boolean).join(", ") ?? null,
+     description: job.content?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() ?? null,
      applicationUrl: job.absolute_url ?? null, sourceUrl: job.absolute_url ?? null, locationText: location,
      workMode: remote ? "REMOTE" : hybrid ? "HYBRID" : "ONSITE", eligibleLocations: remote ? [location] : [],
-     employmentType: job.departments?.map(x => x.name).filter(Boolean).join(", ") ?? null,
      publishedAt: published?.toISOString() ?? null, status: "ACTIVE" });
    }
   }

@@ -20,7 +20,7 @@ Provider-independent adapters are available for Greenhouse, Lever and Ashby publ
 See JOB_DISCOVERY.md.
 
 ## Translation
-The server-side translation gateway supports Google Cloud Translation, DeepL, Microsoft Azure Translator, Amazon Translate and OpenAI. Configure one or more credentials and set TRANSLATION_PROVIDER_ORDER. Review translations before using them in applications or employer communications.
+The server-side translation gateway supports Google Cloud Translation, DeepL, Microsoft Azure Translator, Amazon Translate and OpenAI. Configure one or more credentials and set TRANSLATION_PROVIDER_ORDER. Job descriptions can be translated from the job feed; review translations before using them in applications or employer communications.
 
 See MULTILINGUAL_ARCHITECTURE.md.
 
@@ -34,9 +34,9 @@ See SECURITY_INTEGRATIONS.md and SECURITY_CHECKLIST.md.
 2. Copy .env.example to .env.local and configure local values.
 3. Run npm install.
 4. Run npm run db:generate.
-5. Run npm run db:migrate.
+5. For a fresh development database, run npm run db:push.
 6. Run npm run dev.
 
-After pulling schema changes, run prisma migrate deploy in staging/production and regenerate Prisma Client.
+This scaffold did not previously contain a migration baseline. Before production migration deployment, baseline the existing database and create reviewed Prisma migrations; do not run an unbaselined schema migration against a database containing user data.
 
 Do not use real customer data until security, privacy, ownership-isolation, backup, translation-consent and production deployment checks are complete. This repository is not a security certification. Never commit credentials.
