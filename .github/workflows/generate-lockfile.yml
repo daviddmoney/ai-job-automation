@@ -34,32 +34,39 @@ jobs:
       - name: Generate lockfile from package.json
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
-      - name: Verify clean installation and application checks
-        run: |
-          npm ci
-          npx prisma generate
-          npm run typecheck
-          npm run build
-
-      - name: Commit lockfile when changed
+      - name: Commit generated lockfile
         shell: bash
         run: |
           if [ ! -s package-lock.json ]; then
             echo "package-lock.json was not generated."
             exit 1
           fi
-          git add package-lock.json
-          if git diff --cached --quiet; then
-            echo "package-lock.json is already up to date."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Add generated npm package lockfile"
           git fetch origin "${GITHUB_REF_NAME}"
           if git cat-file -e "origin/${GITHUB_REF_NAME}:package-lock.json" 2>/dev/null; then
-            echo "A concurrent run already committed the lockfile."
-            exit 0
+            echo "A concurrent run already committed a lockfile; using the branch version."
+            git show "origin/${GITHUB_REF_NAME}:package-lock.json" > package-lock.json
+          else
+            git add package-lock.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Add generated npm package lockfile"
+            git rebase "origin/${GITHUB_REF_NAME}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
-          git rebase "origin/${GITHUB_REF_NAME}"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Verify lockfile installation and application
+        run: |
+          npm ci
+          npx prisma generate
+          npm test
+          npm run typecheck
+          npm run build
+
+      - name: Upload generated lockfile for recovery
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-lockfile-${{ github.run_number }}
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 30
