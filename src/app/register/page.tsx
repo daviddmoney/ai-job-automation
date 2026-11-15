@@ -13,8 +13,8 @@ export default function RegisterPage() {
     } catch { setMessage("Unable to reach the server. Please try again."); }
     finally { setBusy(false); }
   }
-  return <main style={{ maxWidth: 460, margin: "64px auto", padding: 24 }}>
-    <a href="/" style={{ color: "#3657a7", fontWeight: 700 }}>AI Job Automation</a>
+  return <main className="form-page">
+    <a href="/" className="action-link">AI Job Automation</a>
     <h1 style={{ fontSize: 32, marginBottom: 8 }}>Create your account</h1>
     <p style={{ color: "#596579", lineHeight: 1.6 }}>Your account starts with standard user access. Staff permissions are assigned separately by an authorised administrator.</p>
     <form action={submit} style={{ display: "grid", gap: 14, marginTop: 24 }}>
