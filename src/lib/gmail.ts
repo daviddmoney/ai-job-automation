@@ -59,15 +59,30 @@ async function attachment(userId:string,cvId?:string) {
  if(cv.mimeType!=="application/pdf"||!cv.fileName.toLowerCase().endsWith(".pdf")) throw new Error("CV_MUST_BE_PDF");
  return {fileName:cv.fileName,mimeType:cv.mimeType,content:Buffer.from(cv.content)};
 }
+async function verifyDraftHasPdf(userId:string,draftId:string) {
+ const draft=await api(userId,"drafts/"+encodeURIComponent(draftId)+"?format=full","GET");
+ const walk=(part:any):boolean=>Boolean(part?.filename&&String(part.filename).toLowerCase().endsWith(".pdf")&&Number(part.body?.size)>0)||(Array.isArray(part?.parts)&&part.parts.some(walk));
+ if(!walk(draft.message?.payload)) throw new Error("GMAIL_DRAFT_ATTACHMENT_VERIFICATION_FAILED");
+ return draft;
+}
 export async function createGmailDraft(userId:string,x:{to:string;subject:string;body:string;cvId?:string}) {
  const t=await getToken(userId), a=await attachment(userId,x.cvId), raw=buildMimeMessage({from:t.email,to:x.to,subject:x.subject,body:x.body,attachment:a});
- return api(userId,"drafts","POST",{message:{raw}});
+ const created=await api(userId,"drafts","POST",{message:{raw}});
+ if(!created.id) throw new Error("GMAIL_DRAFT_CREATE_FAILED");
+ await verifyDraftHasPdf(userId,created.id);
+ return created;
 }
 export async function updateGmailDraft(userId:string,draftId:string,x:{to:string;subject:string;body:string;cvId?:string}) {
  const t=await getToken(userId), a=await attachment(userId,x.cvId), raw=buildMimeMessage({from:t.email,to:x.to,subject:x.subject,body:x.body,attachment:a});
- return api(userId,"drafts/"+encodeURIComponent(draftId),"PUT",{id:draftId,message:{raw}});
+ const updated=await api(userId,"drafts/"+encodeURIComponent(draftId),"PUT",{id:draftId,message:{raw}});
+ if(!updated.id) throw new Error("GMAIL_DRAFT_UPDATE_FAILED");
+ await verifyDraftHasPdf(userId,draftId);
+ return updated;
 }
-export async function sendGmailDraft(userId:string,draftId:string){return api(userId,"drafts/send","POST",{id:draftId});}
+export async function sendGmailDraft(userId:string,draftId:string) {
+ await verifyDraftHasPdf(userId,draftId);
+ return api(userId,"drafts/send","POST",{id:draftId});
+}
 export async function gmailStatus(userId:string) {
  const [c,cv]=await Promise.all([prisma.gmailConnection.findUnique({where:{userId},select:{googleEmail:true,scopes:true}}),prisma.cvDocument.findFirst({where:{userId,isPrimary:true},select:{id:true,fileName:true,sizeBytes:true,updatedAt:true},orderBy:{updatedAt:"desc"}})]);
  return {connected:Boolean(c),email:c?.googleEmail??null,cv:cv??null};
