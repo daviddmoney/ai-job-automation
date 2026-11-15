@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { revalidateTag } from "next/cache";
 import { JobPostingStatus, JobWorkMode } from "@prisma/client";
 import { prisma } from "../prisma.ts";
 
@@ -29,6 +28,11 @@ export const incomingJobSchema = z.object({
 
 type ParsedJob = z.infer<typeof incomingJobSchema>;
 type LeaseFence = { taskId: string; lockToken: string };
+
+async function invalidatePublicJobsCache() {
+  const { revalidateTag } = await import("next/cache");
+  await invalidatePublicJobsCache();
+}
 
 function jobWriteData(job: ParsedJob, wasClosed: boolean) {
   return {
@@ -108,6 +112,6 @@ export async function ingestJobWithLease(input: unknown, lease: LeaseFence, opti
     return existing ? "updated" as const : "created" as const;
   });
 
-  if (options.revalidate !== false) revalidateTag("public-global-jobs", "max");
+  if (options.revalidate !== false) await invalidatePublicJobsCache();
   return { outcome };
 }
