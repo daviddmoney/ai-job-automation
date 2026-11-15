@@ -30,9 +30,10 @@ jobs:
       - name: Analyze and save SARIF report
         uses: github/codeql-action/analyze@v4
         with:
-          # Publish the SARIF results to GitHub Code Scanning.
-          # The repository must have GitHub Code Security enabled for private-repo upload.
-          upload: true
+          # This repository is private and does not currently have GitHub Code Security.
+          # Keep the CodeQL analysis and SARIF artifact, but skip the unavailable GitHub upload.
+          # Enable GitHub Code Security (or make the repository public) before changing this to 'always'.
+          upload: never
           post-processed-sarif-path: ${{ runner.temp }}/codeql-sarif
 
       - name: Upload CodeQL SARIF report
