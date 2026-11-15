@@ -180,3 +180,61 @@ test("Jooble preserves a complete all-failed keyword report without hiding failu
     else process.env.JOOBLE_NG_API_KEY = previousKey;
   }
 });
+
+
+import { requestRateLimitKey, verifiedClientIp } from "../src/lib/rate-limit.ts";
+
+test("rate limiting ignores client-spoofed forwarding headers without a valid edge token", () => {
+  const previousSecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "trusted-edge-test-secret-that-is-long-enough";
+  const spoofed = new Request("https://example.invalid/api", {
+    headers: {
+      "x-forwarded-for": "198.51.100.77",
+      "x-real-ip": "198.51.100.77",
+      "x-verified-client-ip": "203.0.113.99",
+      "x-trusted-proxy-token": "client-controlled-wrong-token"
+    }
+  });
+  const noToken = new Request("https://example.invalid/api", {
+    headers: { "x-verified-client-ip": "203.0.113.99" }
+  });
+  try {
+    assert.equal(verifiedClientIp(spoofed), "unknown");
+    assert.equal(verifiedClientIp(noToken), "unknown");
+    assert.equal(verifiedClientIp(new Request("https://example.invalid/api", {
+      headers: { "x-verified-client-ip": "not-an-ip", "x-trusted-proxy-token": process.env.TRUSTED_PROXY_HEADER_SECRET }
+    })), "unknown");
+  } finally {
+    if (previousSecret === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousSecret;
+  }
+});
+
+test("rate limiting accepts valid authenticated IPv4/IPv6 edge identity and hashes it", () => {
+  const previousSecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  const previousAuthSecret = process.env.AUTH_SECRET;
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "trusted-edge-test-secret-that-is-long-enough";
+  process.env.AUTH_SECRET = "test-auth-secret-that-is-at-least-32-characters-long";
+  const token = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  try {
+    const ipv4 = new Request("https://example.invalid/api", {
+      headers: { "x-verified-client-ip": "203.0.113.10", "x-trusted-proxy-token": token }
+    });
+    const ipv6 = new Request("https://example.invalid/api", {
+      headers: { "x-verified-client-ip": "2001:db8::1", "x-trusted-proxy-token": token }
+    });
+    assert.equal(verifiedClientIp(ipv4), "203.0.113.10");
+    assert.equal(verifiedClientIp(ipv6), "2001:db8::1");
+    const first = requestRateLimitKey(ipv4, "login", "user@example.invalid");
+    const second = requestRateLimitKey(ipv4, "login", "user@example.invalid");
+    const otherIp = requestRateLimitKey(ipv6, "login", "user@example.invalid");
+    assert.equal(first, second);
+    assert.notEqual(first, otherIp);
+    assert.equal(/203\.0\.113\.10|2001:db8::1/.test(first), false);
+  } finally {
+    if (previousSecret === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousSecret;
+    if (previousAuthSecret === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousAuthSecret;
+  }
+});
