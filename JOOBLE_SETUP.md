@@ -1,18 +1,11 @@
-# Jooble Nigeria source setup
+# Optional Jooble Nigeria source setup
 
-The first provider adapter targets Jooble's Nigeria API (`ng.jooble.org`). Obtain a publisher API key through the official [Jooble Nigeria API page](https://ng.jooble.org/api/about). The API requires a key and country-specific registration; the documented free tier is limited to 100 requests per day per country key.
+Jooble Nigeria is an optional supplementary source, not a platform dependency. The global job engine can collect from configured Greenhouse, Lever and Ashby public employer boards independently.
 
-## Configure
-Set `JOOBLE_NG_API_KEY` in the server environment only. Never expose it to client-side code or commit it to Git.
+Obtain a publisher API key through the official Jooble Nigeria API page: https://ng.jooble.org/api/about
 
-## Sync
-- Staff can trigger a sync with `POST /api/admin/jobs/sync` while signed in.
-- A hosting-platform cron can call `GET /api/cron/jobs/sync` with `Authorization: Bearer <CRON_SECRET>`.
-- Set `CRON_SECRET` to a long random secret in the hosting environment.
-- The adapter currently searches accounting, accountant, audit, finance, and accounts-assistant terms. Five searches per sync are made, so schedule within the provider's daily request limit.
+Set JOOBLE_NG_API_KEY in the server environment only. Never expose it to client-side code or commit it to Git.
 
-## Location safeguards
-The provider search requests Lagos, but source results are independently checked by the platform's strict location allow-list before storage. A remote vacancy is accepted only when Lagos is explicitly present in its returned location/title data and is recorded as Lagos-eligible. Generic Nigeria-wide remote jobs are excluded.
+The adapter searches a small set of accounting and graduate-entry terms in Nigeria. It is not a global job index and must not be treated as the only source. Review Jooble's current publisher API terms, request limits and eligibility before production use.
 
-## Important
-Review Jooble's current API terms and publisher requirements before production use. Provider results and timestamps should be verified against the original listing. The platform does not auto-submit applications.
+Manual staff sync and the protected cron endpoint include Jooble only when the key is configured. A Jooble outage is isolated from the other configured job-source adapters.

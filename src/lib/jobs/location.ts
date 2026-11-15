@@ -1,41 +1,12 @@
 import type { JobWorkMode } from "@prisma/client";
-
-const normalise = (value: string | null | undefined) => (value ?? "").trim().toLowerCase().split(" ").filter(Boolean).join(" ");
-
-export interface LagosLocationInput {
-  workMode: JobWorkMode;
-  locationText: string;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  eligibleLocations?: string[];
+const norm = (value: string | null | undefined) => (value ?? "").normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+export interface JobLocationInput { workMode: JobWorkMode; locationText: string; city?: string | null; state?: string | null; country?: string | null; eligibleLocations?: string[]; }
+export function normaliseJobLocation(input: JobLocationInput) {
+ return { locationText: input.locationText.trim(), city: input.city?.trim() || null, state: input.state?.trim() || null, country: input.country?.trim() || null, eligibleLocations: (input.eligibleLocations ?? []).map(x => x.trim()).filter(Boolean) };
 }
-
-/** Strict allow-list: a generic Nigeria-wide remote role is not automatically a Lagos role. */
-export function isLagosOpportunity(input: LagosLocationInput) {
-  const country = normalise(input.country) || (normalise(input.locationText).includes("nigeria") ? "nigeria" : "");
-  if (country !== "nigeria" && country !== "ng") return false;
-
-  if (input.workMode === "REMOTE") {
-    return (input.eligibleLocations ?? []).some((place) => {
-      const value = normalise(place);
-      return value === "lagos" || value === "lagos, nigeria" || value === "lagos nigeria" || value === "lagos state" || value === "lagos state, nigeria";
-    });
-  }
-
-  const parts = input.locationText.split(",").map((part) => normalise(part));
-  const city = normalise(input.city) || parts[0] || "";
-  const state = normalise(input.state) || (parts.length >= 3 ? parts[1] : "");
-  return city === "lagos" || state === "lagos" || state === "lagos state" || normalise(input.locationText).includes("lagos");
-}
-
-export function canonicalLagosLocation(input: LagosLocationInput) {
-  if (!isLagosOpportunity(input)) return null;
-  return {
-    city: "Lagos",
-    state: "Lagos",
-    country: "Nigeria",
-    locationText: input.locationText.trim() || "Lagos, Nigeria",
-    eligibleLocations: input.workMode === "REMOTE" ? ["Lagos, Nigeria"] : input.eligibleLocations ?? []
-  };
+export function matchesJobLocationPreferences(input: JobLocationInput, pref: { preferredCountries?: string[]; preferredRegions?: string[]; preferredCities?: string[]; worldwideSearch?: boolean }) {
+ if (pref.worldwideSearch || (!pref.preferredCountries?.length && !pref.preferredRegions?.length && !pref.preferredCities?.length)) return true;
+ const matches = (value: string | null | undefined, list?: string[]) => Boolean(value && list?.some(x => norm(x) === norm(value)));
+ if (matches(input.country, pref.preferredCountries) || matches(input.state, pref.preferredRegions) || matches(input.city, pref.preferredCities)) return true;
+ return (input.workMode === "REMOTE" || input.workMode === "FLEXIBLE") && (input.eligibleLocations ?? []).some(place => [...(pref.preferredCountries ?? []), ...(pref.preferredRegions ?? []), ...(pref.preferredCities ?? [])].some(x => norm(x) === norm(place)));
 }

@@ -1,8 +1,8 @@
 import SignInForm from "./signin-form";
 
 export default function SignInPage() {
-  return <main style={{ maxWidth: 440, margin: "72px auto", padding: 24 }}>
-    <a href="/" style={{ color: "#3657a7", fontWeight: 700 }}>AI Job Automation</a>
+  return <main className="form-page">
+    <a href="/" className="action-link">AI Job Automation</a>
     <h1 style={{ fontSize: 32, marginBottom: 8 }}>Sign in</h1>
     <p style={{ color: "#596579", lineHeight: 1.6 }}>Access your private job-search workspace. If two-factor authentication is enabled, provide your selected second-factor code.</p>
     <SignInForm />
