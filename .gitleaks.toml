@@ -5,5 +5,7 @@ useDefault = true
 
 [[allowlists]]
 description = "RFC 6238 Appendix B published TOTP test vector used only in a deterministic unit test; not an account credential."
+condition = "AND"
+regexTarget = "secret"
 paths = ['''^tests/provider-hardening\.test\.mjs$''']
 regexes = ['''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''']
