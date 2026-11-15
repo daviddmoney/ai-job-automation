@@ -1,32 +1,74 @@
-# Security implementation checklist
+# Public-release security checklist
 
-## Implemented in this scaffold
-- [x] Private repository and no committed production secrets.
-- [x] Registration assigns USER role on the server; public form has no role field.
-- [x] Passwords hashed with Argon2id.
-- [x] Email verification challenge is hashed, expires after ten minutes, and has a per-account attempt limit.
-- [x] Password sign-in requires a verified email.
-- [x] TOTP authenticator secrets are encrypted with AES-256-GCM using a separate environment key.
-- [x] Email OTP and TOTP second-factor checks are wired into credential sign-in.
-- [x] OAuth cannot bypass enabled 2FA (OAuth sign-in is denied for accounts with 2FA enabled pending an OAuth challenge flow).
-- [x] Server-side helper reads current user role from the database for staff authorization.
-- [x] Security headers are configured in Next.js.
+**Repository:** `daviddmoney/ai-job-automation`  
+**Visibility:** Public  
+**Policy:** A checked implementation item is not considered verified until its required automated or operational test has passed. Do not describe this checklist as a certification.
 
-## Required before public launch
-- [x] Add persistent IP/account rate limiting to registration, password login, email verification/resend, email OTP delivery, and 2FA setup/confirmation endpoints.
-- [ ] Add rate-limit bucket cleanup, abuse monitoring, and validate proxy IP extraction in production.
-- [x] Add resend-verification workflow.
-- [ ] Add recovery codes, account recovery, and 2FA disable/change flows with reauthentication.
-- [x] Add staff-only `/admin` route guarded by a database-backed role check.
-- [x] Add a controlled staff-promotion script restricted to verified accounts; execute only through trusted admin environment.
-- [ ] Add durable audit-event recording for staff promotions and staff actions.
-- [ ] Add ownership-scoped CRUD APIs and tests proving users cannot access other users' data.
-- [ ] Review OAuth account linking and verified-email handling with real provider configuration.
-- [x] Add same-origin checks to registration, verification, resend, email-OTP, and 2FA configuration endpoints.
-- [ ] Review Auth.js cookie/CSRF settings and keep origin checks on future state-changing endpoints.
-- [ ] Add automated unit, integration, and end-to-end tests, including concurrent OTP replay attempts.
-- [ ] Configure production database, email delivery, AUTH_SECRET, TOTP_ENCRYPTION_KEY, and OAuth credentials in the hosting provider's secret manager.
-- [ ] Run Prisma migrations, lint, typecheck, and production build against a staging environment.
-- [ ] Complete privacy, retention, backup, incident-response, and vulnerability reviews.
+## 1. Repository exposure and credentials
 
-This checklist is not a security certification. Do not use real customer data until the outstanding items are addressed and tested.
+- [x] `.gitignore` excludes `.env` and `.env.*`, while allowing the placeholder-only `.env.example`.
+- [ ] Complete a Gitleaks scan of all reachable commits, branches and tags; retain the redacted SARIF report.
+- [ ] Review every Gitleaks finding; distinguish test fixtures from real credentials.
+- [ ] Revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider, GitHub tokens).
+- [ ] If secrets were exposed, remove them from Git history using a coordinated history-rewrite plan, then verify the rewritten history and coordinate fresh clones. Do not rely on deleting a file in a later commit.
+- [ ] Enable GitHub Secret Scanning and push protection where available; verify the repository settings and test a safe dummy canary without publishing a real credential.
+- [ ] Confirm no secrets are present in Actions logs, artifacts, PR diffs, issues, releases, or public documentation.
+- [ ] Keep production secrets only in the hosting provider's secret manager and GitHub Actions secrets/variables where strictly required.
+
+## 2. Static analysis and dependency security
+
+- [x] CodeQL workflow is present on `main` and requests SARIF upload with `security-events: write`.
+- [ ] Run CodeQL against the current `main`; verify the run succeeds and findings appear in Security → Code scanning alerts.
+- [ ] Run Gitleaks full-history workflow and confirm a clean exit status.
+- [ ] Add/verify dependency review and Dependabot security updates on `main`.
+- [ ] Run `npm audit --audit-level=high` against the committed lockfile; review and resolve high/critical advisories.
+- [ ] Add and verify Semgrep or equivalent application security rules on `main`.
+- [ ] Pin third-party GitHub Actions to reviewed immutable commit SHAs and define least-privilege workflow permissions.
+- [ ] Protect `main`: require reviewed pull requests and successful CI/security checks; disallow force pushes and deletion.
+
+## 3. Application authentication and authorization
+
+- [x] Registration assigns the USER role server-side; public registration must not accept a staff role.
+- [x] Password hashing uses Argon2id.
+- [x] Email verification challenges are hashed, expire, and have an attempt limit.
+- [x] Authenticator-app TOTP secrets are encrypted using AES-256-GCM and a separate environment key.
+- [x] Credential sign-in supports email OTP/TOTP checks; OAuth is blocked for accounts with 2FA enabled until an OAuth second-factor challenge exists.
+- [x] Staff authorization uses a database-backed role check and a controlled staff-promotion script.
+- [ ] Add recovery codes, secure account recovery, and reauthentication-protected 2FA disable/change flows.
+- [ ] Add durable audit events for staff promotion, staff actions, authentication events and sensitive account changes.
+- [ ] Review OAuth account linking, verified-email semantics, session expiry/revocation and secure cookie settings with real provider configuration.
+- [ ] Review CSRF/origin validation on every state-changing route, including newly added endpoints.
+- [ ] Add and pass tests for OTP replay/concurrency, brute-force throttling, role escalation, session expiry, OAuth linking and account recovery.
+
+## 4. Abuse prevention and tenant isolation
+
+- [x] Persistent IP/account rate limiting is implemented for registration, password login, email verification/resend, email OTP and 2FA setup/confirmation.
+- [ ] Add rate-limit bucket cleanup, monitoring and alerting; validate trusted client-IP extraction behind the actual Railway proxy.
+- [ ] Prove ownership-scoped access for every user-owned resource: profile, CV files, saved jobs, applications, preferences, Gmail connections and tokens.
+- [ ] Pass two-account integration tests proving one user cannot read, update, delete or download another user's data.
+- [ ] Verify upload limits, PDF validation, storage encryption, access control and deletion/retention behavior for CV files.
+- [ ] Verify logs redact passwords, OAuth codes, access/refresh tokens, CV contents and other personal data.
+
+## 5. CI, database and release engineering
+
+- [ ] CI uses a real disposable PostgreSQL service and runs unit, integration, migration, typecheck and production-build checks.
+- [ ] Use `npm ci` with a committed and reviewed lockfile; do not rely on an unlocked `npm install` in CI.
+- [ ] Validate Prisma migrations against disposable CI PostgreSQL and the actual staging database.
+- [ ] Back up staging and prove restore before applying migrations; verify row counts and data integrity afterward.
+- [ ] Complete privacy, retention, incident-response, backup/restore, monitoring and rollback reviews.
+- [ ] Confirm the exact candidate commit SHA is the one deployed to the intended Railway production service/environment.
+- [ ] Verify the live health endpoint reports application and database health; complete authenticated user and tenant-isolation smoke tests.
+- [ ] Complete a real Gmail OAuth test with a designated test account; verify refresh-token handling and PDF attachment round-trip. Do not send external email without explicit approval.
+
+## 6. Public product and operational readiness
+
+- [ ] Update public documentation so it accurately describes the current global/multilingual product and does not retain obsolete Lagos-only or private-repository statements.
+- [ ] Publish a security contact and vulnerability-reporting process (for example, `SECURITY.md` with supported private disclosure instructions).
+- [ ] Review public issue templates, support logs, demo data and screenshots for personal or confidential information.
+- [ ] Complete an independent penetration test or documented security assessment before handling real customer data.
+
+## Release decision
+
+**NO-GO until all applicable unchecked release gates are evidenced as passed.**
+
+The repository currently has useful security foundations, but the full-history secret scan, CodeQL ingestion, dependency checks, tenant isolation, staging migration/backup, live Railway verification and Gmail OAuth/PDF round-trip are not yet evidenced as complete. A green scanner alone is not a security certification.
