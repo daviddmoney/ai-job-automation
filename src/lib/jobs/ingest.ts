@@ -78,7 +78,7 @@ export async function ingestJob(input: unknown) {
  * cannot transfer ownership while this transaction is writing the posting.
  * If another worker already reclaimed the task, the token predicate fails.
  */
-export async function ingestJobWithLease(input: unknown, lease: LeaseFence) {
+export async function ingestJobWithLease(input: unknown, lease: LeaseFence, options: { revalidate?: boolean } = {}) {
   const parsed = incomingJobSchema.safeParse(input);
   if (!parsed.success) return { outcome: "invalid" as const };
   const job = parsed.data;
@@ -108,6 +108,6 @@ export async function ingestJobWithLease(input: unknown, lease: LeaseFence) {
     return existing ? "updated" as const : "created" as const;
   });
 
-  revalidateTag("public-global-jobs", "max");
+  if (options.revalidate !== false) revalidateTag("public-global-jobs", "max");
   return { outcome };
 }
