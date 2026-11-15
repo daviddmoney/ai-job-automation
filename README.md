@@ -48,3 +48,11 @@ See [JOB_DISCOVERY.md](./JOB_DISCOVERY.md) for the strict Lagos location policy,
 
 ## Staff provisioning
 A verified account can be promoted through the controlled `npm run promote-staff` script using `STAFF_EMAIL` and `CONFIRM_STAFF_PROMOTION=YES` in the deployment/admin environment. Never expose these variables to the browser or public registration.
+
+
+## Gmail and CV attachments
+- Connect Gmail using a dedicated Google OAuth consent flow requesting Gmail draft/send permissions.
+- Upload a PDF CV to the user's private database-backed CV vault. The original bytes are stored and retrieved without text/base64 corruption.
+- Gmail draft creation and updates rebuild the MIME message with the selected CV attachment on every write; sending is a separate explicit action.
+- Configure GOOGLE_GMAIL_CLIENT_ID, GOOGLE_GMAIL_CLIENT_SECRET, GOOGLE_GMAIL_REDIRECT_URI and TOTP_ENCRYPTION_KEY. Run `npm run db:generate` and `npm run db:deploy` after deploying the schema.
+- Set the OAuth redirect URI in Google Cloud Console to the exact GOOGLE_GMAIL_REDIRECT_URI and enable the Gmail API. Request sensitive-scope verification/production publishing as required by Google.
