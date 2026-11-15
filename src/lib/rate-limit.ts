@@ -1,29 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { isIP } from "node:net";
-import { prisma } from "./prisma";
+import { prisma } from "@/lib/prisma";
+import { requestRateLimitKey } from "@/lib/request-identity";
 
-/**
- * Only trust client IP metadata when an edge proxy has overwritten
- * x-verified-client-ip and injected the matching shared secret. Never trust
- * arbitrary X-Forwarded-For / X-Real-IP values supplied by a client.
- */
-export function verifiedClientIp(request: Request) {
-  const secret = process.env.TRUSTED_PROXY_HEADER_SECRET;
-  const supplied = request.headers.get("x-trusted-proxy-token");
-  const candidate = request.headers.get("x-verified-client-ip")?.trim();
-  if (!secret || secret.length < 32 || !supplied || !candidate || isIP(candidate) === 0) return "unknown";
-  const expected = Buffer.from(secret);
-  const actual = Buffer.from(supplied);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return "unknown";
-  return candidate.toLowerCase();
-}
-
-export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  const ip = verifiedClientIp(request);
-  return createHmac("sha256", secret).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
-}
+export { requestRateLimitKey, verifiedClientIp } from "@/lib/request-identity";
 
 /** Atomic PostgreSQL counter. The key is a keyed hash, not a raw IP or email address. */
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) {
