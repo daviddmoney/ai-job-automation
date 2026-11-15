@@ -21,6 +21,8 @@ async function tokenRequest(params:URLSearchParams) {
 export async function completeGmailOAuth(code:string,userId:string) {
  const t=await tokenRequest(new URLSearchParams({code,grant_type:"authorization_code"}));
  if(!t.refresh_token) throw new Error("GMAIL_REFRESH_TOKEN_MISSING");
+ const granted=new Set((t.scope||"").split(" "));
+ if(!granted.has("https://www.googleapis.com/auth/gmail.compose")||!granted.has("https://www.googleapis.com/auth/gmail.send")) throw new Error("GMAIL_REQUIRED_SCOPES_NOT_GRANTED");
  const r=await fetch("https://www.googleapis.com/oauth2/v2/userinfo",{headers:{authorization:"Bearer "+t.access_token},cache:"no-store"}), p=await r.json().catch(()=>({}));
  if(!r.ok||typeof p.email!=="string") throw new Error("GMAIL_PROFILE_LOOKUP_FAILED");
  await prisma.gmailConnection.upsert({where:{userId},create:{userId,googleEmail:p.email,accessTokenCipher:encryptTotpSecret(t.access_token),refreshTokenCipher:encryptTotpSecret(t.refresh_token),expiresAt:new Date(Date.now()+t.expires_in*1000),scopes:(t.scope||"").split(" ").filter(Boolean)},update:{googleEmail:p.email,accessTokenCipher:encryptTotpSecret(t.access_token),refreshTokenCipher:encryptTotpSecret(t.refresh_token),expiresAt:new Date(Date.now()+t.expires_in*1000),scopes:(t.scope||"").split(" ").filter(Boolean)}});
