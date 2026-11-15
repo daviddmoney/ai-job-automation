@@ -37,8 +37,12 @@ export async function syncJobSources(
     const result = sourceResults[i];
     const adapter = adapters[i];
     if (result.status === "rejected") {
-      totals.sourceErrors++;
-      providerResults.push({ provider: adapter.source, status: "failed", boards: [{ target: adapter.source, status: "failed", error: result.reason instanceof Error ? result.reason.message : "PROVIDER_FAILED" }] });
+      const boards = adapter.lastRunReport ?? [{ target: adapter.source, status: "failed" as const, error: result.reason instanceof Error ? result.reason.message : "PROVIDER_FAILED" }];
+      const failed = boards.filter(board => board.status === "failed").length;
+      totals.sourceErrors += Math.max(1, failed);
+      totals.boardsSucceeded += boards.length - failed;
+      totals.boardsFailed += failed;
+      providerResults.push({ provider: adapter.source, status: "failed", boards });
       continue;
     }
     totals.sourcesChecked++;
@@ -47,7 +51,7 @@ export async function syncJobSources(
     totals.boardsSucceeded += boards.length - failed;
     totals.boardsFailed += failed;
     if (failed) totals.sourceErrors += failed;
-    providerResults.push({ provider: adapter.source, status: failed === 0 ? "succeeded" : "partial", boards });
+    providerResults.push({ provider: adapter.source, status: failed === 0 ? "succeeded" : failed === boards.length ? "failed" : "partial", boards });
     for (const record of result.value.records) work.push({ adapter, record });
   }
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
@@ -70,5 +74,5 @@ export async function syncJobSources(
       totals.sourceErrors++;
     }
   });
-  return { ...totals, providers: providerResults, retryPolicy: "Only failed provider/board targets should be resubmitted; successful board results are retained." };
+  return { ...totals, providers: providerResults, retryPolicy: "Provider and board failures are reported independently; the next scheduled run retries configured targets, with successful records safely upserted by provider job ID." };
 }
