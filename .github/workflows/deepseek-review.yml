@@ -104,6 +104,9 @@ jobs:
           try:
               with urllib.request.urlopen(request, timeout=120) as response:
                   data = json.loads(response.read().decode("utf-8"))
+          except urllib.error.HTTPError as exc:
+              detail = exc.read(2000).decode("utf-8", errors="replace")
+              raise SystemExit(f"DeepSeek API returned HTTP {exc.code}: {detail}")
           except Exception as exc:
               raise SystemExit("DeepSeek review request failed: " + type(exc).__name__)
           choices = data.get("choices") or []
