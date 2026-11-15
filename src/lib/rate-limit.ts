@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma";
 
 /**
  * Only trust client IP metadata when an edge proxy has overwritten
