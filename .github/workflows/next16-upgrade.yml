@@ -63,18 +63,6 @@ jobs:
           fi
           npm install --global snyk
           snyk test --all-projects --severity-threshold=high
-      - name: Restore deterministic npm ci in security workflow
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path(".github/workflows/security-scans.yml")
-          content = path.read_text()
-          old = "      - name: Install dependencies\\n        run: npm install\\n"
-          new = "      - name: Install dependencies\\n        run: npm ci\\n"
-          if content.count(old) != 1:
-              raise SystemExit("Could not safely restore the security workflow to npm ci.")
-          path.write_text(content.replace(old, new, 1))
-          PY
       - name: Commit verified migration to feature branch
         run: |
           rm .github/UPGRADE_NEXT_16
