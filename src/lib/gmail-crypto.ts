@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import { decryptTotpSecret } from "@/lib/two-factor";
 
 const CONTEXT = Buffer.from("ai-job-automation:gmail-cv-oauth:v1", "utf8");
 
@@ -23,7 +22,7 @@ export function encryptGmailData(value: string) {
 export function decryptGmailData(value: string) {
   // Existing records were encrypted with the original TOTP helper. Keep a read fallback
   // so the key-separation improvement does not make already-stored connections/CVs unreadable.
-  if (!value.startsWith("g1.")) return decryptTotpSecret(value);
+  if (!value.startsWith("g1.")) return decryptLegacyTotpCipher(value);
   const parts = value.split(".");
   if (parts.length !== 4 || parts[0] !== "g1" || !parts[1] || !parts[2] || !parts[3]) {
     throw new Error("INVALID_ENCRYPTED_GMAIL_DATA");
@@ -31,6 +30,18 @@ export function decryptGmailData(value: string) {
   const [, ivPart, tagPart, dataPart] = parts;
   const decipher = createDecipheriv("aes-256-gcm", gmailDataKey(), Buffer.from(ivPart, "base64url"));
   decipher.setAAD(CONTEXT);
+  decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(dataPart, "base64url")), decipher.final()]).toString("utf8");
+}
+
+function decryptLegacyTotpCipher(value: string) {
+  const raw = process.env.TOTP_ENCRYPTION_KEY;
+  if (!raw) throw new Error("TOTP_ENCRYPTION_KEY_NOT_CONFIGURED");
+  const key = Buffer.from(raw, "base64");
+  if (key.length !== 32) throw new Error("TOTP_ENCRYPTION_KEY_MUST_BE_32_BYTES_BASE64");
+  const [ivPart, tagPart, dataPart] = value.split(".");
+  if (!ivPart || !tagPart || !dataPart) throw new Error("INVALID_ENCRYPTED_TOTP_SECRET");
+  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivPart, "base64url"));
   decipher.setAuthTag(Buffer.from(tagPart, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(dataPart, "base64url")), decipher.final()]).toString("utf8");
 }
