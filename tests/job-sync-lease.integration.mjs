@@ -30,7 +30,7 @@ test("a reclaimed or expired job-sync lease cannot overwrite a posting", async (
   };
 
   try {
-    const first = await ingestJobWithLease(jobInput, { taskId: task.id, lockToken: oldToken });
+    const first = await ingestJobWithLease(jobInput, { taskId: task.id, lockToken: oldToken }, { revalidate: false });
     assert.equal(first.outcome, "created");
 
     await prisma.jobSyncTask.update({
@@ -39,7 +39,7 @@ test("a reclaimed or expired job-sync lease cannot overwrite a posting", async (
     });
 
     await assert.rejects(
-      () => ingestJobWithLease({ ...jobInput, title: "Stale worker overwrite" }, { taskId: task.id, lockToken: oldToken }),
+      () => ingestJobWithLease({ ...jobInput, title: "Stale worker overwrite" }, { taskId: task.id, lockToken: oldToken }, { revalidate: false }),
       /JobSyncLeaseLost/
     );
 
@@ -54,7 +54,7 @@ test("a reclaimed or expired job-sync lease cannot overwrite a posting", async (
     });
 
     await assert.rejects(
-      () => ingestJobWithLease({ ...jobInput, title: "Expired worker overwrite" }, { taskId: task.id, lockToken: newToken }),
+      () => ingestJobWithLease({ ...jobInput, title: "Expired worker overwrite" }, { taskId: task.id, lockToken: newToken }, { revalidate: false }),
       /JobSyncLeaseLost/
     );
 
