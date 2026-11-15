@@ -4,11 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { sendGmailDraft } from "@/lib/gmail";
 import { isSameOriginRequest } from "@/lib/request-security";
+import { readLimitedJson } from "@/lib/request-body";
 export const runtime="nodejs";
 export async function POST(request:NextRequest){
  if(!isSameOriginRequest(request))return NextResponse.json({message:"Request rejected."},{status:403});
  const s=await auth();if(!s?.user?.id)return NextResponse.json({message:"Sign in required."},{status:401});
- const p=z.object({draftId:z.string().min(1).max(200),confirmSend:z.literal(true)}).safeParse(await request.json().catch(()=>null));
+ const parsed=await readLimitedJson(request,8*1024);if(!parsed.ok)return NextResponse.json({message:parsed.message},{status:parsed.status});
+ const p=z.object({draftId:z.string().min(1).max(200),confirmSend:z.literal(true)}).safeParse(parsed.data);
  if(!p.success)return NextResponse.json({message:"Explicit send confirmation is required."},{status:400});
  try{const result=await sendGmailDraft(s.user.id,p.data.draftId);if(!result.id)return NextResponse.json({message:"Gmail did not confirm sending."},{status:502});
  await prisma.auditEvent.create({data:{userId:s.user.id,action:"GMAIL_DRAFT_SENT",resource:"GmailMessage",resourceId:result.id}});
