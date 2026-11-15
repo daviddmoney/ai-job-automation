@@ -20,7 +20,8 @@
 - [x] CodeQL workflow is present on `main` and requests SARIF upload with `security-events: write`.
 - [ ] Run CodeQL against the current `main`; verify the run succeeds and findings appear in Security → Code scanning alerts.
 - [ ] Run Gitleaks full-history workflow and confirm a clean exit status.
-- [ ] Add/verify dependency review and Dependabot security updates on `main`.
+- [x] Add weekly Dependabot configuration for npm and GitHub Actions on this branch.
+- [ ] Merge and verify Dependabot security updates on `main`; enable dependency graph and review alerts.
 - [ ] Run `npm audit --audit-level=high` against the committed lockfile; review and resolve high/critical advisories.
 - [ ] Add and verify Semgrep or equivalent application security rules on `main`.
 - [ ] Pin third-party GitHub Actions to reviewed immutable commit SHAs and define least-privilege workflow permissions.
@@ -63,7 +64,7 @@
 ## 6. Public product and operational readiness
 
 - [ ] Update public documentation so it accurately describes the current global/multilingual product and does not retain obsolete Lagos-only or private-repository statements.
-- [ ] Publish a security contact and vulnerability-reporting process (for example, `SECURITY.md` with supported private disclosure instructions).
+- [x] Add `SECURITY.md` with private vulnerability disclosure instructions; enable GitHub private vulnerability reporting in repository settings and verify the route.
 - [ ] Review public issue templates, support logs, demo data and screenshots for personal or confidential information.
 - [ ] Complete an independent penetration test or documented security assessment before handling real customer data.
 
