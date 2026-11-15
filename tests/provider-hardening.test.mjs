@@ -135,3 +135,48 @@ test("multipart body reader rejects oversized streamed bodies and wrong content 
   assert.equal(rejected.ok, false);
   if (!rejected.ok) assert.equal(rejected.status, 415);
 });
+
+
+import { JoobleNigeriaAdapter } from "../src/lib/jobs/sources/jooble-ng.ts";
+
+test("Jooble reports each keyword target independently when some searches fail", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.JOOBLE_NG_API_KEY;
+  process.env.JOOBLE_NG_API_KEY = "test-only-key";
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    if (body.keywords === "audit") return new Response("provider error", { status: 400 });
+    return new Response(JSON.stringify({ jobs: [] }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  try {
+    const adapter = new JoobleNigeriaAdapter();
+    const jobs = await adapter.fetchRecentJobs({ since: new Date(0) });
+    assert.deepEqual(jobs, []);
+    assert.equal(adapter.lastRunReport.length, 6);
+    assert.equal(adapter.lastRunReport.filter(item => item.status === "succeeded").length, 5);
+    assert.equal(adapter.lastRunReport.filter(item => item.status === "failed").length, 1);
+    assert.equal(adapter.lastRunReport.find(item => item.target === "audit")?.status, "failed");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.JOOBLE_NG_API_KEY;
+    else process.env.JOOBLE_NG_API_KEY = previousKey;
+  }
+});
+
+test("Jooble preserves a complete all-failed keyword report without hiding failures", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousKey = process.env.JOOBLE_NG_API_KEY;
+  process.env.JOOBLE_NG_API_KEY = "test-only-key";
+  globalThis.fetch = async () => new Response("provider unavailable", { status: 400 });
+  try {
+    const adapter = new JoobleNigeriaAdapter();
+    const jobs = await adapter.fetchRecentJobs({ since: new Date(0) });
+    assert.deepEqual(jobs, []);
+    assert.equal(adapter.lastRunReport.length, 6);
+    assert.equal(adapter.lastRunReport.every(item => item.status === "failed"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousKey === undefined) delete process.env.JOOBLE_NG_API_KEY;
+    else process.env.JOOBLE_NG_API_KEY = previousKey;
+  }
+});
