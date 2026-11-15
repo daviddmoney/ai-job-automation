@@ -182,7 +182,7 @@ test("Jooble preserves a complete all-failed keyword report without hiding failu
 });
 
 
-import { requestRateLimitKey, verifiedClientIp } from "../src/lib/rate-limit.ts";
+import { requestRateLimitKey, verifiedClientIp } from "../src/lib/request-identity.ts";
 
 test("rate limiting ignores client-spoofed forwarding headers without a valid edge token", () => {
   const previousSecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
