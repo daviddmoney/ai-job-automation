@@ -38,7 +38,7 @@ jobs:
       - name: Migrate asynchronous Next.js request APIs
         env:
           CI: "true"
-        run: npx --yes @next/codemod@canary next-async-request-api .
+        run: npx --yes @next/codemod@canary next-async-request-api . --force
       - name: Generate Next.js and Prisma types
         run: |
           npx next typegen
