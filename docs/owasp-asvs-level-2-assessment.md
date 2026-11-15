@@ -1,10 +1,10 @@
 # OWASP ASVS Level 2 assessment register
 
 **Target:** OWASP Application Security Verification Standard (ASVS) v5.0.0 Level 2  
-**Assessment status:** In progress — not certified and not independently verified  
-**Candidate evidence commit:** `0e701976e70849ec69c97f7715a8db69e5319f0a`  
+**Assessment status:** In progress — automated evidence is available; independent assessment and production verification are not complete.  
+**Automated evidence candidate:** `2fc99a0249f19e5155597c76f5c18f075b495f47`  
 **Scope:** Web application, authentication, APIs, user data isolation, job ingestion, admin functions, deployment and CI/CD.  
-**Release rule:** Do not mark a requirement passed without test evidence, reviewer, date and commit/deployment identifier.
+**Release rule:** Do not mark an ASVS requirement passed without test evidence, reviewer, date and commit/deployment identifier.
 
 ## Assessment method
 
@@ -32,25 +32,40 @@
 - Business logic, job ingestion, queue leases and race conditions
 - Configuration, deployment, dependencies, CI/CD and supply-chain security
 
-## Evidence register
+## Automated evidence register
 
-| Control area | Evidence on candidate `0e701976e70849ec69c97f7715a8db69e5319f0a` | Status |
+All rows below are tied to candidate `2fc99a0249f19e5155597c76f5c18f075b495f47` and the GitHub Actions runs recorded in `SECURITY_CHECKLIST.md`.
+
+| Control area | Evidence | Status |
 |---|---|---|
-| CI tests, typecheck and build | GitHub Actions CI passed | Automated check passed |
-| Database migration and integration | Disposable PostgreSQL migrations and account-isolation test passed | Automated check passed; staging pending |
-| Dependency audit | npm audit: zero vulnerabilities | Automated check passed |
-| Snyk | 76 dependencies tested; zero issues/vulnerable paths at high threshold | Automated check passed |
-| Semgrep | SARIF contained zero findings | Automated check passed |
-| Historical secrets | Gitleaks scanned 435 commits across 9 branches, no tags; zero findings | Passed for stated scan scope |
-| Incremental secrets | Narrow RFC 6238 test-vector allowlist; Gitleaks SARIF zero findings | Passed |
-| CodeQL | SARIF successfully uploaded; zero results | Automated check passed |
-| Dependency Review | GitHub Dependency Review passed | Automated check passed |
-| Gmail/CV request controls | Streamed JSON/multipart limits and per-user rate limits; tests passed | Automated check passed; live staging pending |
-| Gmail/CV encryption | HKDF-derived domain-separated AES-256-GCM; legacy read/lazy migration; tests passed | Automated check passed; key rotation policy pending |
-| Tenant isolation | Saved-job/application integration test passed | Partial; full resource coverage and live two-account test pending |
-| Trusted proxy | Shared-secret proxy header gate implemented | Pending staging configuration |
+| CI tests, typecheck and build | CI passed; 19 unit tests and 2 PostgreSQL integration tests passed | Automated PASS |
+| Database migration | Five migrations applied to disposable PostgreSQL; migration status and typecheck passed | Automated PASS; staging pending |
+| Dependency audit | npm audit reported 0 vulnerabilities | Automated PASS |
+| Snyk | 76 dependencies tested; 0 issues and 0 vulnerable paths at high threshold | Automated PASS |
+| Semgrep | 22 rules across 77 source files; 0 findings | Automated PASS |
+| Historical secrets | Gitleaks 8.30.1 scanned 449 commits from 11 fetched branches; 461 reachable commits; no tags; 0 findings | Automated PASS for scanned Git refs |
+| Incremental secrets | Gitleaks scan passed | Automated PASS |
+| CodeQL | Analysis completed; SARIF uploaded and accepted by GitHub | Automated PASS; alert listing not independently inspected |
+| Dependency Review | Pull-request dependency review passed | Automated PASS |
+| Queue lease safety | Stale/reclaimed/expired worker cannot overwrite a posting; integration test passed | Automated PASS |
+| Trusted proxy identity | Spoofed/missing/incorrect/malformed header and IPv4/IPv6 tests passed | Automated PASS; live edge configuration pending |
+| Jooble provider reporting | Partial and all-failed keyword reporting tests passed | Automated PASS |
+| Gmail/CV request controls | Streamed JSON/multipart limits and per-user rate limits; tests passed | Automated PASS; live staging pending |
+| Gmail/CV encryption | HKDF-derived domain-separated AES-256-GCM and compatibility tests passed | Automated PASS; key rotation policy pending |
+| Tenant isolation | Saved-job/application account-isolation integration test passed | Partial; broader resource coverage and live two-account test pending |
+| Malware scanning | No production malware scanner/quarantine evidence | Not tested |
+| Trusted proxy deployment | Shared-secret gate implemented; actual Railway/edge injection and origin restriction unverified | Not tested |
 | Independent penetration test | No report supplied | Not tested |
 | ASVS Level 2 independent assessment | No evidence package or assessor sign-off | Not tested |
+
+## Production and owner gates
+
+- GitHub Secret Scanning, push protection and private vulnerability reporting settings require owner verification.
+- No repository rulesets were returned by the available read endpoint; classic branch protection could not be read by the connected integration.
+- Railway deployed SHA, live health, trusted proxy configuration, database backup/restore and rollback remain unverified.
+- Live Gmail OAuth and PDF attachment tests remain pending.
+- CV malware scanning/quarantine and expanded tenant-isolation tests remain pending.
+- Privacy, retention and cross-border transfer reviews remain pending.
 
 ## Out of scope until separately authorised
 

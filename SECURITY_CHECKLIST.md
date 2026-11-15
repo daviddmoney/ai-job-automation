@@ -2,102 +2,124 @@
 
 **Repository:** `daviddmoney/ai-job-automation`  
 **Visibility:** Public  
-**Latest audited candidate commit:** `fb928d5ccf6ba11cffadb00adfd5846e4850c997`  
-**Assessment status:** Automated checks passed; independent and production assurance still pending. This is not a formal certification.
+**Automated evidence candidate:** `2fc99a0249f19e5155597c76f5c18f075b495f47`  
+**Assessment date:** 2026-11-15  
+**Automated evidence status:** PASS on the stated candidate and workflow runs.  
+**Public production release status:** NO-GO — operational, platform-setting and independent-assessment gates remain open.  
+**Certification scope:** This is an engineering-issued attestation of automated checks, not an independent penetration-test report, OWASP certification, or guarantee of vulnerability-free software.
 
-## 1. Public repository and credential hygiene
+## 1. Automated evidence — verified on the same candidate commit
 
-- [x] Repository visibility is public.
-- [x] `.gitignore` excludes `.env` and `.env.*` while allowing the placeholder-only `.env.example`.
-- [x] Gitleaks configuration retains default rules and allowlists only the published RFC 6238 test vector in `tests/provider-hardening.test.mjs`.
-- [x] Dedicated full-history Gitleaks workflow uses complete history and all fetched refs; binary v8.30.1 is pinned and its SHA-256 checksum is verified.
-- [x] Full-history scan passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: 439 reachable commits, 10 fetched remote branches, no tags; Gitleaks scanned 427 commits and reported no leaks.
-- [x] Incremental Gitleaks scan passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; zero findings.
-- [ ] Review future findings; revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider and GitHub tokens).
-- [ ] If a real secret is found, remove it from history using a coordinated rewrite plan, verify rewritten history and coordinate fresh clones.
-- [ ] Verify GitHub Secret Scanning, push protection, Dependabot alerts and private vulnerability reporting settings in the repository UI.
-- [ ] Check provider dashboards, deployment logs, Actions logs/artifacts, PRs, issues and releases for exposures outside Git history.
+- [x] Repository is public.
+- [x] CI workflow passed: run [#43735386883](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386883).
+- [x] Migration Validation passed: run [#43735386819](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386819).
+- [x] Security scans passed: run [#43735386894](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386894).
+- [x] CodeQL passed and SARIF upload/analysis completed: run [#43735386992](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386992). The connector did not expose the current alert listing, so this checklist does not claim a zero-alert count.
+- [x] Full-history Gitleaks audit passed: run [#43735386857](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386857).
+- [x] Dependency Review passed: run [#43735386860](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386860).
+- [x] Automated DeepSeek PR-review workflow completed successfully: run [#43735386956](https://github.com/daviddmoney/ai-job-automation/actions/runs/43735386956). This is not a substitute for human approval or independent review.
+- [x] Unit tests: 19 passed, 0 failed.
+- [x] PostgreSQL integration tests: 2 passed, 0 failed, including stale/reclaimed/expired queue-lease write prevention.
+- [x] TypeScript typecheck and production build passed.
+- [x] Five Prisma migrations applied successfully to disposable PostgreSQL; migration status and schema access checks passed.
+- [x] npm audit reported 0 vulnerabilities.
+- [x] Snyk tested 76 dependencies and reported 0 issues and 0 vulnerable paths at the configured high-severity threshold.
+- [x] Semgrep ran 22 rules across 77 source files and reported 0 findings.
+- [x] Incremental Gitleaks scan passed.
 
-## 2. Static analysis and dependency security
+### Historical secret audit evidence
 
-- [x] Preserve the exact newer `main` CodeQL SARIF workflow.
-- [x] CodeQL completed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; GitHub confirmed successful SARIF upload and analysis completion. Review the repository's Code Scanning alerts for the current mainline.
-- [x] Semgrep completed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; 22 rules ran across 76 files with zero findings.
-- [x] Gitleaks SARIF contained zero findings.
-- [x] Dependency Review completed successfully.
-- [x] Weekly Dependabot updates are configured for npm and GitHub Actions.
-- [x] npm audit on `fb928d5ccf6ba11cffadb00adfd5846e4850c997` reported zero vulnerabilities.
-- [ ] Latest-head Snyk scan is not verified: the workflow reported that `SNYK_TOKEN` is missing. Do not count this optional integration as a completed scan.
-- [ ] Confirm the same zero-vulnerability result after the candidate is merged into `main`. The older main dependency tree previously reported 8 high and 1 moderate vulnerabilities.
-- [x] All non-CodeQL third-party workflow actions are pinned to reviewed immutable commit SHAs and Node 24-compatible releases.
-- [ ] Update checkout/upload-artifact references in the exact preserved CodeQL workflow to Node 24-compatible immutable pins after approval; current `@v4` references succeeded but emitted Node 20 deprecation warnings.
-- [ ] Protect `main` with reviewed pull requests, required CI/security checks, no force-push and no branch deletion.
+- Gitleaks version: 8.30.1 (pinned binary; SHA-256 verified before execution).
+- Reachable commits in the fetched checkout: 461.
+- Remote branches fetched: 11.
+- Commits scanned by Gitleaks: 449.
+- Tags fetched: none.
+- Findings: 0.
+- Result: `no leaks found`.
+- A redacted SARIF report was uploaded as a workflow artifact.
+- [x] No confirmed credential exposure was found in the scanned Git history. No credential rotation or destructive history rewrite is justified by this scan.
+- [ ] Continue to review external provider dashboards, deployment logs, Actions logs/artifacts, PRs, issues and releases; Git history scanning cannot prove that credentials were never exposed elsewhere.
+
+### Security-related code fixes and regression coverage
+
+- [x] Queue-owned job writes now verify task id, PROCESSING state, exact lock token and unexpired lease under `SELECT ... FOR UPDATE` in the same transaction as the JobPosting upsert.
+- [x] Worker lease renewal runs every 15 seconds and fails closed if ownership cannot be confirmed.
+- [x] Regression test confirms a reclaimed or expired worker cannot overwrite a posting.
+- [x] Jooble reports per-keyword success/failure; partial and all-failed cases have regression tests.
+- [x] Trusted client-IP identity logic is isolated and tested against spoofed forwarding headers, missing/incorrect tokens, invalid addresses, IPv4/IPv6 and stable hashed rate-limit keys.
+- [x] CodeQL workflow checkout and artifact actions were updated to immutable Node 24-compatible action pins.
+- [x] Both P2 stale-worker review threads on PR #1 have been replied to with test evidence and resolved.
+
+## 2. GitHub repository controls — still require owner verification
+
+- [x] Public repository visibility confirmed.
+- [x] Dependabot weekly update configuration is present.
+- [ ] Verify and enable GitHub Secret Scanning.
+- [ ] Verify and enable secret-scanning push protection.
+- [ ] Verify Dependabot alerts and security updates are enabled in repository settings.
+- [ ] Enable and test private vulnerability reporting.
+- [ ] Protect `main`: require pull requests, required CI/security checks, approvals, no force-push and no branch deletion.
+- [ ] No repository rulesets were returned by the available read endpoint. Classic branch-protection read was denied to the connected integration (HTTP 403), so the actual branch-protection state remains unverified.
+- [ ] Review the GitHub Code Scanning alerts page after the SARIF upload; a successful upload alone does not prove the alert list is empty.
 
 ## 3. Authentication, authorization and account security
 
-- [x] Registration assigns USER role server-side.
+- [x] Server-side registration assigns USER role.
 - [x] Password hashing uses Argon2id.
-- [x] Email verification challenges are hashed, expire and have attempt limits.
-- [x] TOTP secrets are encrypted using AES-256-GCM with a separate environment key.
-- [x] Email OTP and TOTP second-factor checks are implemented.
-- [x] Database-backed staff authorization and controlled staff promotion are implemented.
+- [x] Email-verification challenges are hashed, expire and have attempt limits.
+- [x] TOTP secrets use AES-256-GCM encryption.
 - [x] Atomic TOTP replay protection and one-time hashed recovery-code consumption are implemented.
 - [x] Recovery-code regeneration requires password and fresh TOTP; codes are returned once and stored hashed.
-- [x] Gmail OAuth tokens and CV content use an HKDF-derived, domain-separated AES-256-GCM subkey; legacy ciphertext remains readable and is re-encrypted lazily.
-- [ ] Add audited 2FA disable/recovery flow for users who lose both authenticator and recovery codes.
-- [ ] Review OAuth account linking, verified-email handling, secure cookies, session revocation and expiry with real provider configuration.
-- [ ] Test OTP replay/concurrency, brute force, privilege escalation, session expiry, account recovery and OAuth linking.
+- [x] Database-backed staff authorization and controlled staff promotion are implemented.
+- [ ] Add and independently review a secure 2FA recovery/disable path for a user who loses both authenticator and recovery codes.
+- [ ] Test OAuth account linking, verified-email handling, session revocation/expiry, secure cookies, brute-force resistance and privilege escalation against real provider configuration.
+- [ ] Review whether NextAuth provider tokens stored in the adapter Account table require encryption or scope minimisation.
 
-## 4. Abuse prevention, APIs and tenant isolation
+## 4. API abuse prevention, uploads and tenant isolation
 
-- [x] Persistent IP/account rate limiting is implemented on inspected authentication and sensitive endpoints.
-- [x] Spoofable X-Forwarded-For/X-Real-IP values are not trusted; the application expects a trusted edge-injected client-IP header with shared secret.
-- [x] Streamed JSON body limits cover inspected auth, preference, application, saved-job, translation, recovery-code, admin-import and Gmail draft/send routes.
-- [x] Streamed multipart byte limits cover CV uploads before form parsing.
-- [x] Per-user rate limits cover Gmail connect, draft create/update/send and CV upload.
-- [ ] Configure and verify trusted proxy header injection and restrict direct origin access in the actual Railway environment.
-- [ ] Add rate-limit bucket cleanup, monitoring and alerting; validate thresholds and client-IP behavior behind the production proxy.
-- [x] Disposable PostgreSQL migration and saved-job/application account-isolation integration tests passed on `0e701976e70849ec69c97f7715a8db69e5319f0a`.
-- [ ] Expand ownership-scoped tests to every user-owned resource, including CV files, Gmail connections, preferences and every API read/update/delete/download path.
-- [ ] Complete a live two-account test proving one user cannot access another user's data.
-- [ ] Add malware scanning and quarantine for uploaded CVs; verify file signature, storage encryption, authorization and deletion.
-- [ ] Verify logs redact passwords, OAuth codes, access/refresh tokens, CV contents and personal data.
-- [ ] Add durable audit events for staff actions, account security changes and sensitive data access.
+- [x] Persistent database rate limiting and request-size limits are implemented on inspected sensitive routes.
+- [x] Spoofable X-Forwarded-For/X-Real-IP headers are not trusted by the application helper.
+- [x] Proxy identity is accepted only when the edge-provided IP is valid and accompanied by the shared token.
+- [ ] Configure the actual Railway/edge proxy to strip client-supplied identity headers, overwrite them, inject the secret and prevent direct-origin bypass. Without this deployment configuration, IP identity falls back to `unknown`.
+- [ ] Add rate-limit bucket cleanup, alerting and production proxy-behaviour verification.
+- [x] Disposable PostgreSQL account-isolation tests pass for saved jobs and applications.
+- [ ] Extend ownership tests to CV files, Gmail connections, preferences and every user-owned API read/update/delete/download path.
+- [ ] Complete live two-account isolation tests.
+- [x] CV uploads enforce streamed byte limits, PDF MIME/extension and file-signature checks, and encrypted database storage.
+- [ ] Add malware scanning/quarantine, secure download review and retention/deletion tests before accepting real CVs.
+- [ ] Verify logs redact credentials, OAuth codes/tokens, CV contents and personal data.
+- [ ] Add and verify durable audit events for staff actions and sensitive account/data changes.
 
-## 5. CI, database, deployment and operations
+## 5. Database, deployment and operations
 
-- [x] Candidate CI passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build.
-- [x] Migration Validation passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: migrations applied to disposable PostgreSQL, representative multi-user data inserted, account-isolation test passed, migration status confirmed and typecheck passed.
-- [ ] Back up the real staging database and prove restore before applying migrations; compare row counts and data integrity afterward.
-- [ ] Confirm `prisma migrate status` on staging and rehearse rollback.
-- [ ] Confirm Railway project, service and environment; verify deployed SHA equals approved release SHA.
-- [ ] Verify live health endpoint reports application and database healthy.
-- [ ] Complete authenticated staging smoke tests for registration, login, 2FA, job search, saved jobs, applications and account separation.
+- [x] Disposable PostgreSQL migration validation passed.
+- [x] Disposable PostgreSQL integration tests passed.
+- [ ] Back up the actual staging database and prove restore before migration; compare row counts and data integrity.
+- [ ] Reconcile and rehearse staging migrations and rollback.
+- [ ] Verify the actual Railway project/service/environment and deployed SHA.
+- [ ] Verify the live health endpoint and database connectivity.
+- [ ] Complete authenticated staging smoke tests for registration, login, 2FA, job search, saved jobs, applications, translation and account separation.
 - [ ] Verify encrypted backups, point-in-time recovery, monitoring, alerting, incident response and rollback.
-- [ ] Add CSP and production HSTS after validating external resources.
-- [ ] Configure WAF, DDoS/bot controls and origin restrictions appropriate to the hosting setup.
+- [ ] Validate CSP, HSTS, WAF/bot controls and direct-origin restrictions in the real deployment.
+- [ ] Verify rate-limit edge configuration with real requests.
 
-## 6. Gmail, privacy and independent assessment
+## 6. Gmail, privacy and independent assurance
 
-- [x] Gmail OAuth/token and PDF MIME implementation plus deterministic binary-attachment/header tests exist.
-- [x] Gmail/CV request-size limits, per-user rate limits and domain-separated encryption are implemented and passed CI.
-- [ ] Complete authorised live Google OAuth consent, refresh-token test, Gmail draft read-back and PDF attachment byte/size verification in a designated test mailbox.
-- [ ] Verify disconnect/revocation and account ownership with two separate test users.
-- [ ] Do not send an external email without explicit user approval and a controlled test recipient.
+- [x] Gmail token/CV encryption and binary PDF MIME tests pass.
+- [x] Gmail/CV request-size limits and per-user rate limits pass CI.
+- [ ] Complete authorised live Google OAuth consent, refresh-token, Gmail draft read-back and PDF attachment verification in a designated test mailbox.
+- [ ] Verify Gmail disconnect/revocation and account ownership with two test users.
+- [ ] Do not send external email without explicit approval and a controlled recipient.
 - [ ] Complete privacy, retention, data-processing and cross-border transfer reviews for international users.
-- [x] `SECURITY.md` provides private vulnerability-disclosure instructions.
-- [ ] Enable GitHub private vulnerability reporting and verify the reporting route.
+- [x] `SECURITY.md` documents private vulnerability disclosure instructions.
+- [ ] Verify GitHub private vulnerability reporting is enabled.
 - [ ] Complete an independent penetration test and remediate findings.
-- [ ] Complete an independent OWASP ASVS Level 2 assessment with evidence, reviewer and sign-off.
-
-## Known optional integration
-
-The DeepSeek PR-review workflow is now non-blocking when the provider is unavailable. The provider previously returned HTTP 402 for insufficient balance, so no independent DeepSeek review comment was produced. Fund the account if that second opinion is desired.
+- [ ] Complete an independent OWASP ASVS Level 2 assessment with evidence and independent assessor sign-off.
 
 ## Release decision
 
-**NO-GO for production use with real customer data until all applicable unchecked gates are evidenced as passed on the exact release commit.**
+**AUTOMATED SECURITY EVIDENCE: PASS** for candidate `2fc99a0249f19e5155597c76f5c18f075b495f47` and the seven successful workflow runs listed above.
 
-The latest evidence above is from the candidate commit before this checklist-only update. The new commit must complete its own CI, CodeQL, dependency, Semgrep and full-history secret-audit runs before it is treated as the verified candidate.
+**PUBLIC PRODUCTION RELEASE: NO-GO** until all applicable owner/platform, staging, live OAuth, upload-malware, tenant-isolation, privacy and independent-assessment gates are closed on the exact release commit.
 
-Automated scans and CI pass on this candidate. The candidate PR remains unmerged; the older main dependency tree remains exposed to the previously reported advisories until the candidate is merged. A clean scan is not a security certification.
+The candidate PR remains open and unmerged. The automated pass on the feature candidate does not transfer to the current `main` branch or a Railway deployment until those exact revisions are verified. Do not accept real customer CVs or personal data based solely on this automated evidence.
