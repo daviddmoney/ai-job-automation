@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
  * x-verified-client-ip and injected the matching shared secret. Never trust
  * arbitrary X-Forwarded-For / X-Real-IP values supplied by a client.
  */
-function verifiedClientIp(request: Request) {
+export function verifiedClientIp(request: Request) {
   const secret = process.env.TRUSTED_PROXY_HEADER_SECRET;
   const supplied = request.headers.get("x-trusted-proxy-token");
   const candidate = request.headers.get("x-verified-client-ip")?.trim();
