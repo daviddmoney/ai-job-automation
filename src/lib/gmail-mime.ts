@@ -5,7 +5,7 @@ function base64Url(input: Buffer) {
 }
 
 function safeHeader(value: string) {
-  return value.replace(/[\r\n]/g, " ").trim();
+  return value.replace(/[\r\n]+/g, " ").trim();
 }
 
 export function buildMimeMessage(input: {
