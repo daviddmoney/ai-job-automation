@@ -2,7 +2,7 @@ name: CodeQL
 
 on:
   push:
-    branches: [main, feature/global-multilingual-security]
+    branches: [main]
   pull_request:
     branches: [main]
   schedule:
@@ -14,29 +14,34 @@ permissions:
   contents: read
   security-events: write
 
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze TypeScript
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: github/codeql-action/init@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
-      - uses: github/codeql-action/autobuild@v4
+      - name: Build
+        uses: github/codeql-action/autobuild@v4
 
-      - name: Analyze and save SARIF report
+      - name: Analyze and upload findings to GitHub Code Scanning
         uses: github/codeql-action/analyze@v4
         with:
-          # This repository is private and does not currently have GitHub Code Security.
-          # Keep the CodeQL analysis and SARIF artifact, but skip the unavailable GitHub upload.
-          # Enable GitHub Code Security (or make the repository public) before changing this to 'always'.
-          upload: never
+          category: /language:javascript-typescript
+          upload: always
           post-processed-sarif-path: ${{ runner.temp }}/codeql-sarif
 
-      - name: Upload CodeQL SARIF report
+      - name: Preserve SARIF artifact for audit and troubleshooting
         if: always()
         uses: actions/upload-artifact@v4
         with:
