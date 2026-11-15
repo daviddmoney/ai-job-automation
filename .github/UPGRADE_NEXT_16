@@ -1,3 +1,4 @@
 Run the guarded Next.js 16.1.5 upgrade on this feature branch. The workflow commits only after tests, typecheck, build, npm audit and Snyk pass.
 Retry after fixing codemod dirty-worktree safety check.
 Retry after Next.js 16 cache API type fix.
+Retry with patched Next.js 16.4.6 and compatible dependency audit remediation.
