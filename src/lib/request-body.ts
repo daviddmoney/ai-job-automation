@@ -43,7 +43,6 @@ export async function readLimitedJson(request: Request, maxBytes = 64 * 1024): P
   }
 }
 
-
 export type LimitedFormResult =
   | { ok: true; data: FormData }
   | { ok: false; status: 400 | 413 | 415; message: string };
@@ -51,12 +50,12 @@ export type LimitedFormResult =
 /** Parse multipart form data only after enforcing a hard streamed byte ceiling. */
 export async function readLimitedFormData(request: Request, maxBytes = 8 * 1024 * 1024 + 256 * 1024): Promise<LimitedFormResult> {
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
-  if (!/^multipart\\/form-data(?:\\s*;|$)/.test(contentType) || !/;\\s*boundary=(?:"[^"]+"|[^;]+)/i.test(contentType)) {
+  if (!/^multipart\/form-data(?:\s*;|$)/.test(contentType) || !/;\s*boundary=(?:"[^"]+"|[^;]+)/i.test(contentType)) {
     return { ok: false, status: 415, message: "Content-Type must be multipart/form-data with a boundary." };
   }
   const declared = request.headers.get("content-length");
   if (declared !== null) {
-    if (!/^\\d+$/.test(declared)) return { ok: false, status: 400, message: "Invalid Content-Length." };
+    if (!/^\d+$/.test(declared)) return { ok: false, status: 400, message: "Invalid Content-Length." };
     if (Number(declared) > maxBytes) return { ok: false, status: 413, message: "Request body is too large." };
   }
   if (!request.body) return { ok: false, status: 400, message: "Request body is required." };
