@@ -98,7 +98,7 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model JobProfile {
+model CvDocument {\n  id          String   @id @default(cuid())\n  userId      String\n  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n  fileName    String\n  mimeType    String\n  sizeBytes   Int\n  content     Bytes    @db.ByteA\n  isPrimary   Boolean  @default(true)\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n  @@index([userId, isPrimary, updatedAt])\n}\n\nmodel GmailConnection {\n  id                 String   @id @default(cuid())\n  userId             String   @unique\n  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n  googleEmail        String\n  accessTokenCipher  String   @db.Text\n  refreshTokenCipher String   @db.Text\n  expiresAt          DateTime\n  scopes             String[]\n  createdAt          DateTime @default(now())\n  updatedAt          DateTime @updatedAt\n}\n\nmodel JobProfile {
   id              String   @id @default(cuid())
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
