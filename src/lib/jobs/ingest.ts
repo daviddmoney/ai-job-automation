@@ -31,7 +31,7 @@ type LeaseFence = { taskId: string; lockToken: string };
 
 async function invalidatePublicJobsCache() {
   const { revalidateTag } = await import("next/cache");
-  await invalidatePublicJobsCache();
+  revalidateTag("public-global-jobs", "max");
 }
 
 function jobWriteData(job: ParsedJob, wasClosed: boolean) {
@@ -72,7 +72,7 @@ export async function ingestJob(input: unknown) {
     create: { source: job.source, sourceJobId: job.sourceJobId, ...data },
     update: data
   });
-  revalidateTag("public-global-jobs", "max");
+  await invalidatePublicJobsCache();
   return { outcome: existing ? "updated" as const : "created" as const };
 }
 
