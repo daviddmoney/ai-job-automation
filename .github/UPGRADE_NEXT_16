@@ -3,3 +3,5 @@ Retry after fixing codemod dirty-worktree safety check.
 Retry after Next.js 16 cache API type fix.
 Retry with patched Next.js 16.4.6 and compatible dependency audit remediation.
 Retry after correcting the 16.4.6 workflow trigger condition.
+
+Retry after removing the unnecessary post-validation workflow rewrite; commit only the already validated dependency migration.
