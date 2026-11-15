@@ -45,3 +45,10 @@ See SECURITY_INTEGRATIONS.md and SECURITY_CHECKLIST.md.
 This scaffold did not previously contain a migration baseline. Before production migration deployment, baseline the existing database and create reviewed Prisma migrations; do not run an unbaselined schema migration against a database containing user data.
 
 Do not use real customer data until security, privacy, ownership-isolation, backup, translation-consent and production deployment checks are complete. This repository is not a security certification. Never commit credentials.
+
+
+## Gmail and CV attachments
+- Connect Gmail using a dedicated Google OAuth client requesting Gmail compose and send permissions. Enable the Gmail API in Google Cloud and register the exact `GOOGLE_GMAIL_REDIRECT_URI`.
+- Upload a PDF CV (maximum 8 MB) to the authenticated user's private CV vault. File bytes and OAuth tokens are encrypted at application level with the existing 32-byte `TOTP_ENCRYPTION_KEY` before database storage.
+- Gmail draft creation and updates rebuild the MIME message from the original binary PDF bytes. The draft is read back from Gmail and checked for a non-empty PDF attachment before success is reported or sending is allowed.
+- Sending is a separate explicit-confirmation action. Configure `GOOGLE_GMAIL_CLIENT_ID`, `GOOGLE_GMAIL_CLIENT_SECRET`, `GOOGLE_GMAIL_REDIRECT_URI`, and `TOTP_ENCRYPTION_KEY`; apply migrations and regenerate Prisma Client before deployment.
