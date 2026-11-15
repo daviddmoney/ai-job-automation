@@ -1,18 +1,69 @@
 const features = [
-  { title: "Lagos-only opportunities", description: "Prioritise newly published vacancies whose stated work location is Lagos, including clearly identified Lagos hybrid and remote roles." },
-  { title: "Private job profile", description: "Keep your CV, experience, saved opportunities, and application history isolated to your own account." },
-  { title: "Application tracking", description: "Organise opportunities by status and keep notes, deadlines, and next steps in one workspace." },
-  { title: "Human approval", description: "Review each tailored application before anything is submitted or sent on your behalf." }
+  { icon: "⌕", title: "Global opportunity radar", description: "Discover roles across countries, industries and work arrangements, using the preferences you control." },
+  { icon: "✦", title: "Career intelligence", description: "Bring your experience, goals and job preferences together to find more relevant opportunities." },
+  { icon: "▤", title: "Intelligent CV studio", description: "Prepare and tailor career documents while keeping your original files available for review." },
+  { icon: "↗", title: "Application command centre", description: "Organise opportunities, review next steps and keep every application journey visible." },
+  { icon: "◎", title: "Human-approved automation", description: "Use automation with clear activity history and your approval before external submissions." },
+  { icon: "文", title: "Multilingual by design", description: "Work across languages while retaining original vacancy text and reviewing AI translations." }
 ];
 
+function Brand() {
+  return <a className="brand" href="/" aria-label="AI Job Automation home"><span className="brand-mark">A</span><span>career<span className="gradient-text">/OS</span></span></a>;
+}
+
 export default function HomePage() {
-  return <main style={{ maxWidth: 1040, margin: "0 auto", padding: "72px 24px" }}>
-    <div style={{ display: "inline-block", padding: "7px 12px", borderRadius: 999, background: "#e8eefc", color: "#24458b", fontSize: 13, fontWeight: 700 }}>PRIVATE SAAS WORKSPACE</div>
-    <h1 style={{ fontSize: "clamp(40px, 7vw, 64px)", lineHeight: 1.05, letterSpacing: "-0.04em", margin: "22px 0 18px" }}>Find the right Lagos opportunity. Manage every next step.</h1>
-    <p style={{ maxWidth: 700, fontSize: 19, lineHeight: 1.7, color: "#596579" }}>AI Job Automation is being built as a secure, multi-user platform for discovering relevant jobs, preparing applications, and tracking progress — with your personal information kept private.</p>
-    <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 44 }}>
-      {features.map((feature) => <article key={feature.title} style={{ background: "white", border: "1px solid #e5e9f0", borderRadius: 16, padding: 22 }}><h2 style={{ fontSize: 18, margin: "0 0 10px" }}>{feature.title}</h2><p style={{ color: "#596579", lineHeight: 1.65, margin: 0 }}>{feature.description}</p></article>)}
-    </section>
-    <p style={{ marginTop: 42, color: "#788397", fontSize: 13 }}>Development scaffold · Authentication, database, job integrations, and deployment are not yet configured.</p>
+  return <main>
+    <div className="container">
+      <header className="topbar">
+        <Brand />
+        <nav className="nav-links" aria-label="Main navigation">
+          <a href="#capabilities">Capabilities</a>
+          <a href="#how-it-works">How it works</a>
+          <a className="button" href="/signin">Sign in</a>
+          <a className="button button-primary" href="/register">Get started <span aria-hidden="true">↗</span></a>
+        </nav>
+      </header>
+
+      <section className="hero">
+        <div>
+          <span className="eyebrow"><span className="pulse" /> Your intelligent career workspace</span>
+          <h1>Your next opportunity deserves <span className="gradient-text">a smarter system.</span></h1>
+          <p className="hero-copy">Discover opportunities worldwide, prepare stronger applications and manage every next step in one thoughtful workspace — with you in control.</p>
+          <div className="hero-actions">
+            <a className="button button-primary" href="/register">Build your career workspace <span aria-hidden="true">→</span></a>
+            <a className="button" href="/signin">Explore your workspace</a>
+          </div>
+          <p className="trust-line">Global discovery · Multilingual support · Human-approved actions</p>
+        </div>
+
+        <div className="preview-window" aria-label="Illustrative preview of the career workspace">
+          <div className="preview-head"><span className="preview-dots"><i/><i/><i/></span><span>CAREER INTELLIGENCE / OVERVIEW</span><span>● LIVE</span></div>
+          <div className="preview-card">
+            <div className="preview-title"><span>Your opportunity landscape</span><span className="pill">Personalised</span></div>
+            <div className="preview-sub">A clearer view of your next career move</div>
+            <div className="preview-metrics">
+              <div className="metric"><strong>01</strong><span>Discover</span></div>
+              <div className="metric"><strong>02</strong><span>Review</span></div>
+              <div className="metric"><strong>03</strong><span>Advance</span></div>
+            </div>
+            <div className="preview-title" style={{margin:"17px 0 5px"}}><span>Opportunity matches</span><span style={{color:"#9b8cff"}}>View all ↗</span></div>
+            <div className="job-row"><div><strong style={{fontSize:12}}>Finance Analyst</strong><div className="job-company">Global organisation · Hybrid</div></div><span className="pill">Review match</span></div>
+            <div className="job-row"><div><strong style={{fontSize:12}}>Operations Associate</strong><div className="job-company">Technology · Remote</div></div><span className="pill">New role</span></div>
+            <div className="job-row"><div><strong style={{fontSize:12}}>Graduate Accountant</strong><div className="job-company">Professional services · On-site</div></div><span className="pill">Explore</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="capabilities">
+        <div className="section-heading"><span className="eyebrow">One connected experience</span><h2>Everything around your career, working together.</h2><p>Less fragmented searching. More clarity, thoughtful automation and control over the decisions that matter.</p></div>
+        <div className="feature-grid">{features.map(feature => <article className="feature-card" key={feature.title}><span className="feature-icon" aria-hidden="true">{feature.icon}</span><h3>{feature.title}</h3><p>{feature.description}</p></article>)}</div>
+      </section>
+
+      <section className="section" id="how-it-works">
+        <div className="section-heading"><span className="eyebrow">A calmer way forward</span><h2>Discover. Prepare. Approve. Progress.</h2><p>Your profile and preferences guide discovery. You review AI-assisted documents and approve external actions. Your application history stays organised in your workspace.</p></div>
+        <a className="button button-primary" href="/register">Start building your workspace <span aria-hidden="true">→</span></a>
+      </section>
+      <footer className="site-footer"><Brand/><span>Designed for opportunity, built around your control.</span><span>© {new Date().getFullYear()} AI Job Automation</span></footer>
+    </div>
   </main>;
 }
