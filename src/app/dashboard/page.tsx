@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     </aside>
     <main className="workspace">
       <header className="workspace-top">
-        <div><p>MONDAY, YOUR CAREER WORKSPACE</p><h1>Overview</h1></div>
+        <div><p>YOUR CAREER WORKSPACE</p><h1>Overview</h1></div>
         <div className="avatar" aria-label="Signed-in account">{initial}</div>
       </header>
 
