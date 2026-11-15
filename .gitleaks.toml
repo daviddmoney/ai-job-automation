@@ -3,7 +3,7 @@ title = "AI Job Automation Gitleaks configuration"
 [extend]
 useDefault = true
 
-[[allowlists]]
+[allowlist]
 description = "RFC 6238 Appendix B published TOTP test vector used only in a deterministic unit test; not an account credential."
 condition = "AND"
 regexTarget = "secret"
