@@ -37,7 +37,7 @@ export default function HomePage() {
         </div>
 
         <div className="preview-window" aria-label="Illustrative preview of the career workspace">
-          <div className="preview-head"><span className="preview-dots"><i/><i/><i/></span><span>CAREER INTELLIGENCE / OVERVIEW</span><span>● LIVE</span></div>
+          <div className="preview-head"><span className="preview-dots"><i/><i/><i/></span><span>CAREER INTELLIGENCE / OVERVIEW</span><span>DESIGN PREVIEW</span></div>
           <div className="preview-card">
             <div className="preview-title"><span>Your opportunity landscape</span><span className="pill">Personalised</span></div>
             <div className="preview-sub">A clearer view of your next career move</div>
