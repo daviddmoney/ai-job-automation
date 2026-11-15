@@ -81,7 +81,7 @@ test("TOTP verifier returns the accepted time counter for atomic replay protecti
   assert.equal(verifyTotpCounter(secret, "000000", 59_000), null);
 });
 
-import { readLimitedJson } from "../src/lib/request-body.ts";
+import { readLimitedJson, readLimitedFormData } from "../src/lib/request-body.ts";
 
 test("JSON body reader rejects oversized declared bodies before reading", async () => {
   const request = new Request("https://example.invalid/api", {
@@ -101,6 +101,37 @@ test("JSON body reader enforces streamed byte limits and content type", async ()
   if (!result.ok) assert.equal(result.status, 413);
   const wrongType = new Request("https://example.invalid/api", { method: "POST", headers: { "content-type": "text/plain" }, body: "{}" });
   const rejected = await readLimitedJson(wrongType, 32);
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) assert.equal(rejected.status, 415);
+});
+
+
+test("multipart body reader preserves a bounded PDF upload", async () => {
+  const form = new FormData();
+  form.append("file", new Blob([Buffer.from("%PDF-1.7")], { type: "application/pdf" }), "cv.pdf");
+  const request = new Request("https://example.invalid/api/cv", { method: "POST", body: form });
+  const result = await readLimitedFormData(request, 4096);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    const file = result.data.get("file");
+    assert.ok(file instanceof File);
+    assert.equal(file.size, 8);
+    assert.equal(file.type, "application/pdf");
+  }
+});
+
+test("multipart body reader rejects oversized streamed bodies and wrong content types", async () => {
+  const form = new FormData();
+  form.append("file", new Blob([Buffer.alloc(2048, 0x41)], { type: "application/pdf" }), "large.pdf");
+  const request = new Request("https://example.invalid/api/cv", { method: "POST", body: form });
+  const tooLarge = await readLimitedFormData(request, 1024);
+  assert.equal(tooLarge.ok, false);
+  if (!tooLarge.ok) assert.equal(tooLarge.status, 413);
+
+  const wrongType = new Request("https://example.invalid/api/cv", {
+    method: "POST", headers: { "content-type": "application/json" }, body: "{}"
+  });
+  const rejected = await readLimitedFormData(wrongType, 1024);
   assert.equal(rejected.ok, false);
   if (!rejected.ok) assert.equal(rejected.status, 415);
 });
