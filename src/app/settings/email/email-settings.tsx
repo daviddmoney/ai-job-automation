@@ -20,10 +20,15 @@ export default function EmailSettings({connected,email,cv:initialCv,error}:Props
   }catch(e){setMessage(e instanceof Error?e.message:"Gmail draft operation failed.");}finally{setBusy(false);}
  }
  async function sendDraft(){
-  if(!draftId||!window.confirm("Send this Gmail draft now? The saved PDF CV must be attached."))return;
+  if(!draftId||!window.confirm("Send this email using the current recipient, subject and message, with the saved PDF CV attached?"))return;
   setBusy(true);setMessage("");
-  try{const r=await fetch("/api/gmail/drafts/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({draftId,confirmSend:true})});const d=await r.json();if(!r.ok)throw new Error(d.message||"Gmail send failed.");setMessage("Gmail confirmed the email was sent. Message ID: "+d.messageId);setDraftId("");}
-  catch(e){setMessage(e instanceof Error?e.message:"Gmail send failed.");}finally{setBusy(false);}
+  try{
+   const update=await fetch("/api/gmail/drafts",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({draftId,to,subject,body})});
+   const updated=await update.json();if(!update.ok)throw new Error(updated.message||"Could not update and verify the draft before sending.");
+   const r=await fetch("/api/gmail/drafts/send",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({draftId,confirmSend:true})});
+   const d=await r.json();if(!r.ok)throw new Error(d.message||"Gmail send failed.");
+   setMessage("Gmail confirmed the updated email was sent with the PDF CV. Message ID: "+d.messageId);setDraftId("");
+  }catch(e){setMessage(e instanceof Error?e.message:"Gmail send failed.");}finally{setBusy(false);}
  }
  return <main style={{maxWidth:760,margin:"0 auto",padding:"48px 24px"}}>
   <a href="/dashboard" style={{color:"#3657a7"}}>← Dashboard</a><h1 style={{fontSize:34}}>Email and CV settings</h1>
