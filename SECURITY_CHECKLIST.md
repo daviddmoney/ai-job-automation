@@ -7,8 +7,8 @@
 ## 1. Repository exposure and credentials
 
 - [x] `.gitignore` excludes `.env` and `.env.*`, while allowing the placeholder-only `.env.example`.
-- [ ] Complete a Gitleaks scan of all reachable commits, branches and tags; retain the redacted SARIF report.
-- [ ] Review every Gitleaks finding; distinguish test fixtures from real credentials.
+- [x] Complete Gitleaks full-history scan on PR #7 head `068d9816152188652f328cde4cc24bf1a49f3315`: 398 reachable commits across 9 fetched branches, no tags, and Gitleaks reported `no leaks found`; redacted SARIF artifact retained (Actions run #18).
+- [x] Review Gitleaks result: no findings were reported in run #18, so no credential finding required triage.
 - [ ] Revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider, GitHub tokens).
 - [ ] If secrets were exposed, remove them from Git history using a coordinated history-rewrite plan, then verify the rewritten history and coordinate fresh clones. Do not rely on deleting a file in a later commit.
 - [ ] Enable GitHub Secret Scanning and push protection where available; verify the repository settings and test a safe dummy canary without publishing a real credential.
@@ -19,8 +19,9 @@
 
 - [x] CodeQL workflow is present on `main` and requests SARIF upload with `security-events: write`.
 - [ ] Run CodeQL against the current `main`; verify the run succeeds and findings appear in Security → Code scanning alerts.
-- [ ] Run Gitleaks full-history workflow and confirm a clean exit status.
+- [x] Run Gitleaks full-history workflow; run #18 completed successfully on the PR head.
 - [x] Add weekly Dependabot configuration for npm and GitHub Actions on this branch.
+- [x] Add dependency-review workflow; PR #7 dependency review completed successfully on the same head.
 - [ ] Merge and verify Dependabot security updates on `main`; enable dependency graph and review alerts.
 - [ ] Run `npm audit --audit-level=high` against the committed lockfile; review and resolve high/critical advisories.
 - [ ] Add and verify Semgrep or equivalent application security rules on `main`.
