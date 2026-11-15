@@ -57,7 +57,7 @@ async function attachment(userId:string,cvId?:string) {
  const cv=await prisma.cvDocument.findFirst({where:{userId,...(cvId?{id:cvId}:{isPrimary:true})},orderBy:{updatedAt:"desc"}});
  if(!cv) throw new Error("CV_NOT_UPLOADED");
  if(cv.mimeType!=="application/pdf"||!cv.fileName.toLowerCase().endsWith(".pdf")) throw new Error("CV_MUST_BE_PDF");
- return {fileName:cv.fileName,mimeType:cv.mimeType,content:Buffer.from(cv.content)};
+ return {fileName:cv.fileName,mimeType:cv.mimeType,content:Buffer.from(decryptTotpSecret(Buffer.from(cv.content).toString("utf8")),"base64")};
 }
 async function verifyDraftHasPdf(userId:string,draftId:string) {
  const draft=await api(userId,"drafts/"+encodeURIComponent(draftId)+"?format=full","GET");
