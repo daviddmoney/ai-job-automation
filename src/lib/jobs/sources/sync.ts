@@ -1,4 +1,4 @@
-import { ingestJob } from "@/lib/jobs/ingest";
+import { ingestJob, ingestJobWithLease } from "@/lib/jobs/ingest";
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
 import { withJobSyncLeaseGuard } from "@/lib/jobs/sources/lease-guard";
 
@@ -17,7 +17,7 @@ async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 export async function syncJobSources(
   adapters: JobSourceAdapter[],
   since: Date,
-  options: { beforeIngest?: () => Promise<void>; ingest?: typeof ingestJob } = {}
+  options: { beforeIngest?: () => Promise<void>; ingest?: typeof ingestJob; lease?: { taskId: string; lockToken: string } } = {}
 ) {
   const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0, boardsSucceeded: 0, boardsFailed: 0 };
   const providerResults: Array<{ provider: string; status: "succeeded" | "partial" | "failed"; boards: NonNullable<JobSourceAdapter["lastRunReport"]> }> = [];
@@ -52,10 +52,16 @@ export async function syncJobSources(
   }
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
     try {
-      const result = await withJobSyncLeaseGuard(
-        options.beforeIngest ?? (async () => {}),
-        () => (options.ingest ?? ingestJob)({ ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source })
-      );
+      const input = { ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source };
+      const result = options.lease
+        ? await withJobSyncLeaseGuard(
+            options.beforeIngest ?? (async () => {}),
+            () => ingestJobWithLease(input, options.lease!)
+          )
+        : await withJobSyncLeaseGuard(
+            options.beforeIngest ?? (async () => {}),
+            () => (options.ingest ?? ingestJob)(input)
+          );
       if (result.outcome === "created") totals.created++;
       else if (result.outcome === "updated") totals.updated++;
       else totals.invalid++;
