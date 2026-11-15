@@ -2,7 +2,7 @@
 
 **Repository:** `daviddmoney/ai-job-automation`  
 **Visibility:** Public  
-**Automated evidence commit:** `0e701976e70849ec69c97f7715a8db69e5319f0a`  
+**Latest audited candidate commit:** `fb928d5ccf6ba11cffadb00adfd5846e4850c997`  
 **Assessment status:** Automated checks passed; independent and production assurance still pending. This is not a formal certification.
 
 ## 1. Public repository and credential hygiene
@@ -11,8 +11,8 @@
 - [x] `.gitignore` excludes `.env` and `.env.*` while allowing the placeholder-only `.env.example`.
 - [x] Gitleaks configuration retains default rules and allowlists only the published RFC 6238 test vector in `tests/provider-hardening.test.mjs`.
 - [x] Dedicated full-history Gitleaks workflow uses complete history and all fetched refs; binary v8.30.1 is pinned and its SHA-256 checksum is verified.
-- [x] Full-history scan passed on `0e701976e70849ec69c97f7715a8db69e5319f0a`: 435 reachable commits across 9 fetched branches, no tags; zero Gitleaks SARIF findings.
-- [x] Incremental Gitleaks scan passed on `0e701976e70849ec69c97f7715a8db69e5319f0a`; zero SARIF findings.
+- [x] Full-history scan passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: 439 reachable commits, 10 fetched remote branches, no tags; Gitleaks scanned 427 commits and reported no leaks.
+- [x] Incremental Gitleaks scan passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; zero findings.
 - [ ] Review future findings; revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider and GitHub tokens).
 - [ ] If a real secret is found, remove it from history using a coordinated rewrite plan, verify rewritten history and coordinate fresh clones.
 - [ ] Verify GitHub Secret Scanning, push protection, Dependabot alerts and private vulnerability reporting settings in the repository UI.
@@ -21,13 +21,13 @@
 ## 2. Static analysis and dependency security
 
 - [x] Preserve the exact newer `main` CodeQL SARIF workflow.
-- [x] CodeQL completed on `0e701976e70849ec69c97f7715a8db69e5319f0a`; SARIF upload succeeded and Code Scanning reported zero results in the uploaded SARIF.
-- [x] Semgrep completed; uploaded SARIF contained zero findings.
+- [x] CodeQL completed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; GitHub confirmed successful SARIF upload and analysis completion. Review the repository's Code Scanning alerts for the current mainline.
+- [x] Semgrep completed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`; 22 rules ran across 76 files with zero findings.
 - [x] Gitleaks SARIF contained zero findings.
 - [x] Dependency Review completed successfully.
 - [x] Weekly Dependabot updates are configured for npm and GitHub Actions.
-- [x] npm audit report on `0e701976e70849ec69c97f7715a8db69e5319f0a`: 0 info, 0 low, 0 moderate, 0 high and 0 critical vulnerabilities across 197 dependencies.
-- [x] Snyk tested 76 dependencies and reported 0 issues and 0 vulnerable paths at the high-severity threshold.
+- [x] npm audit on `fb928d5ccf6ba11cffadb00adfd5846e4850c997` reported zero vulnerabilities.
+- [ ] Latest-head Snyk scan is not verified: the workflow reported that `SNYK_TOKEN` is missing. Do not count this optional integration as a completed scan.
 - [ ] Confirm the same zero-vulnerability result after the candidate is merged into `main`. The older main dependency tree previously reported 8 high and 1 moderate vulnerabilities.
 - [x] All non-CodeQL third-party workflow actions are pinned to reviewed immutable commit SHAs and Node 24-compatible releases.
 - [ ] Update checkout/upload-artifact references in the exact preserved CodeQL workflow to Node 24-compatible immutable pins after approval; current `@v4` references succeeded but emitted Node 20 deprecation warnings.
@@ -66,8 +66,8 @@
 
 ## 5. CI, database, deployment and operations
 
-- [x] Candidate CI passed on `0e701976e70849ec69c97f7715a8db69e5319f0a`: `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build.
-- [x] Migration Validation passed on `0e701976e70849ec69c97f7715a8db69e5319f0a`: migrations applied to disposable PostgreSQL, representative multi-user data inserted, account-isolation test passed, migration status confirmed and typecheck passed.
+- [x] Candidate CI passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build.
+- [x] Migration Validation passed on `fb928d5ccf6ba11cffadb00adfd5846e4850c997`: migrations applied to disposable PostgreSQL, representative multi-user data inserted, account-isolation test passed, migration status confirmed and typecheck passed.
 - [ ] Back up the real staging database and prove restore before applying migrations; compare row counts and data integrity afterward.
 - [ ] Confirm `prisma migrate status` on staging and rehearse rollback.
 - [ ] Confirm Railway project, service and environment; verify deployed SHA equals approved release SHA.
@@ -97,5 +97,7 @@ The DeepSeek PR-review workflow is now non-blocking when the provider is unavail
 ## Release decision
 
 **NO-GO for production use with real customer data until all applicable unchecked gates are evidenced as passed on the exact release commit.**
+
+The latest evidence above is from the candidate commit before this checklist-only update. The new commit must complete its own CI, CodeQL, dependency, Semgrep and full-history secret-audit runs before it is treated as the verified candidate.
 
 Automated scans and CI pass on this candidate. The candidate PR remains unmerged; the older main dependency tree remains exposed to the previously reported advisories until the candidate is merged. A clean scan is not a security certification.
