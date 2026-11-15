@@ -27,15 +27,11 @@ export const incomingJobSchema = z.object({
   status: z.nativeEnum(JobPostingStatus).default(JobPostingStatus.ACTIVE)
 });
 
-export async function ingestJob(input: unknown) {
-  const parsed = incomingJobSchema.safeParse(input);
-  if (!parsed.success) return { outcome: "invalid" as const };
-  const job = parsed.data;
-  const existing = await prisma.jobPosting.findUnique({
-    where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
-    select: { id: true, status: true }
-  });
-  const data = {
+type ParsedJob = z.infer<typeof incomingJobSchema>;
+type LeaseFence = { taskId: string; lockToken: string };
+
+function jobWriteData(job: ParsedJob, wasClosed: boolean) {
+  return {
     title: job.title,
     company: job.company,
     salaryText: job.salaryText ?? null,
@@ -54,8 +50,19 @@ export async function ingestJob(input: unknown) {
     publishedAt: job.publishedAt ? new Date(job.publishedAt) : null,
     expiresAt: job.expiresAt ? new Date(job.expiresAt) : null,
     status: job.status,
-    ...(existing?.status === "CLOSED" && job.status === "ACTIVE" ? { discoveredAt: new Date() } : {})
+    ...(wasClosed && job.status === "ACTIVE" ? { discoveredAt: new Date() } : {})
   };
+}
+
+export async function ingestJob(input: unknown) {
+  const parsed = incomingJobSchema.safeParse(input);
+  if (!parsed.success) return { outcome: "invalid" as const };
+  const job = parsed.data;
+  const existing = await prisma.jobPosting.findUnique({
+    where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
+    select: { id: true, status: true }
+  });
+  const data = jobWriteData(job, existing?.status === "CLOSED");
   await prisma.jobPosting.upsert({
     where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
     create: { source: job.source, sourceJobId: job.sourceJobId, ...data },
@@ -63,4 +70,44 @@ export async function ingestJob(input: unknown) {
   });
   revalidateTag("public-global-jobs", "max");
   return { outcome: existing ? "updated" as const : "created" as const };
+}
+
+/**
+ * Fence every queue-owned posting mutation with a row lock on its task.
+ * Claim/reclaim operations must update this same JobSyncTask row, so they
+ * cannot transfer ownership while this transaction is writing the posting.
+ * If another worker already reclaimed the task, the token predicate fails.
+ */
+export async function ingestJobWithLease(input: unknown, lease: LeaseFence) {
+  const parsed = incomingJobSchema.safeParse(input);
+  if (!parsed.success) return { outcome: "invalid" as const };
+  const job = parsed.data;
+
+  const outcome = await prisma.$transaction(async tx => {
+    const owned = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "JobSyncTask"
+      WHERE "id" = ${lease.taskId}
+        AND "status" = 'PROCESSING'
+        AND "lockToken" = ${lease.lockToken}
+        AND "lockExpiresAt" > NOW()
+      FOR UPDATE
+    `;
+    if (owned.length !== 1) throw new Error("JobSyncLeaseLost");
+
+    const existing = await tx.jobPosting.findUnique({
+      where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
+      select: { id: true, status: true }
+    });
+    const data = jobWriteData(job, existing?.status === "CLOSED");
+    await tx.jobPosting.upsert({
+      where: { source_sourceJobId: { source: job.source, sourceJobId: job.sourceJobId } },
+      create: { source: job.source, sourceJobId: job.sourceJobId, ...data },
+      update: data
+    });
+    return existing ? "updated" as const : "created" as const;
+  });
+
+  revalidateTag("public-global-jobs", "max");
+  return { outcome };
 }
