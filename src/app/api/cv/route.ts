@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { encryptGmailData } from "@/lib/gmail-crypto";
 import { readLimitedFormData } from "@/lib/request-body";
+import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 export const runtime="nodejs";
 const MAX=8*1024*1024;
 export async function GET(){
@@ -14,6 +15,7 @@ export async function GET(){
 export async function POST(request:NextRequest){
  if(!isSameOriginRequest(request))return NextResponse.json({message:"Request rejected."},{status:403});
  const s=await auth();if(!s?.user?.id)return NextResponse.json({message:"Sign in required."},{status:401});
+ try{const key=requestRateLimitKey(request,"cv-upload",s.user.id);if(!(await consumeRateLimit(key,5,3600)))return NextResponse.json({message:"Upload limit reached. Try again later."},{status:429});}catch{return NextResponse.json({message:"Security service unavailable."},{status:503});}
  const parsed=await readLimitedFormData(request,MAX+256*1024);if(!parsed.ok)return NextResponse.json({message:parsed.message},{status:parsed.status});
  const file=parsed.data.get("file");
  if(!(file instanceof File))return NextResponse.json({message:"Choose a PDF CV."},{status:400});
