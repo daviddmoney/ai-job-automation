@@ -2,6 +2,7 @@
 
 **Target:** OWASP Application Security Verification Standard (ASVS) v5.0.0 Level 2  
 **Assessment status:** In progress — not certified and not independently verified  
+**Candidate evidence commit:** `4215675c62ff72153e252ff05114a8cddcea9bcd`  
 **Scope:** Web application, authentication, APIs, user data isolation, job ingestion, admin functions, deployment and CI/CD.  
 **Release rule:** Do not mark a requirement passed without test evidence, reviewer, date and commit/deployment identifier.
 
@@ -33,18 +34,18 @@
 
 ## Evidence register
 
-| Control area | Evidence | Status |
+| Control area | Evidence on candidate `4215675c62ff72153e252ff05114a8cddcea9bcd` | Status |
 |---|---|---|
-| Candidate CI | CI passed at candidate commit `d4b7996...`; rerun required after reconciliation | Automated check; rerun pending |
-| Dependency audit | npm audit JSON reported zero vulnerabilities on candidate baseline; rerun required | Automated check; rerun pending |
-| Snyk and Semgrep | Both jobs passed on candidate baseline; rerun required | Automated check; rerun pending |
-| Historical secrets | Gitleaks full-history scan: 398 commits, 9 branches, no tags, no leaks on PR #7 hardening head | Passed for stated scan scope |
-| Incremental secrets | Gitleaks false positive on published RFC 6238 test vector; narrow allowlist added | Rerun pending |
-| CodeQL | SARIF upload succeeded on PR #7 hardening branch; final candidate run pending | Partial |
-| Dependency Review | Passed on PR #7 hardening head; final candidate run pending | Partial |
-| Migration validation | Disposable PostgreSQL migration and account-isolation workflow added | Run pending |
-| Tenant isolation | Saved-job/application integration test exists; full resource coverage and live two-account test pending | Partial |
-| Trusted proxy | Shared-secret proxy header gate implemented; actual edge proxy and origin restrictions need staging verification | Pending staging |
+| CI tests, typecheck and build | GitHub Actions CI passed | Automated check passed |
+| Database migration and integration | Disposable PostgreSQL migrations and account-isolation test passed | Automated check passed; staging pending |
+| Dependency audit | npm audit: zero vulnerabilities | Automated check passed |
+| Snyk and Semgrep | Both security jobs passed | Automated checks passed |
+| Historical secrets | Gitleaks scanned 407 commits across 9 branches, no tags; no leaks found | Passed for stated scan scope |
+| Incremental secrets | Narrow RFC 6238 test-vector allowlist; Gitleaks passed | Passed |
+| CodeQL | SARIF successfully uploaded to GitHub Code Scanning | Automated check passed |
+| Dependency Review | GitHub Dependency Review passed | Automated check passed |
+| Tenant isolation | Saved-job/application integration test passed | Partial; full resource coverage and live two-account test pending |
+| Trusted proxy | Shared-secret proxy header gate implemented | Pending staging configuration |
 | JSON request limits | Explicit body limits on inspected sensitive JSON routes | Partial; audit remaining routes |
 | Independent penetration test | No report supplied | Not tested |
 | ASVS Level 2 independent assessment | No evidence package or assessor sign-off | Not tested |
