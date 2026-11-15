@@ -1,4 +1,5 @@
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
+import type { BoardRunResult } from "@/lib/jobs/sources/board-utils";
 
 interface JoobleJob {
   id?: string | number; title?: string; location?: string; snippet?: string; salary?: string;
@@ -36,13 +37,17 @@ async function fetchJooble(endpoint: string, keywords: string): Promise<JoobleRe
 
 export class JoobleNigeriaAdapter implements JobSourceAdapter {
   readonly source = "jooble-ng";
+  lastRunReport: BoardRunResult[] = [];
   async fetchRecentJobs({ since }: { since: Date }): Promise<unknown[]> {
+    this.lastRunReport = [];
     const key = process.env.JOOBLE_NG_API_KEY;
     if (!key) return [];
     const endpoint = "https://ng.jooble.org/api/" + encodeURIComponent(key);
     const responses = await Promise.allSettled(SEARCH_TERMS.map(term => fetchJooble(endpoint, term)));
     const successful = responses.filter((result): result is PromiseFulfilledResult<JoobleResponse> => result.status === "fulfilled");
-    if (!successful.length) throw new Error("All Jooble keyword searches failed.");
+    this.lastRunReport = responses.map((result, index) => result.status === "fulfilled"
+      ? { target: SEARCH_TERMS[index], status: "succeeded" as const }
+      : { target: SEARCH_TERMS[index], status: "failed" as const, error: result.reason instanceof Error ? result.reason.message : "JOOBLE_SEARCH_FAILED" });
     const unique = new Map<string, JoobleJob>();
     for (const result of successful) for (const job of result.value.jobs ?? []) {
       const id = String(job.id ?? job.link ?? (job.title ?? "job") + ":" + (job.location ?? ""));
