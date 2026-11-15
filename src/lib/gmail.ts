@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { buildMimeMessage } from "@/lib/gmail-mime";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, encryptTotpSecret } from "@/lib/two-factor";
 const API = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -41,13 +41,6 @@ async function getToken(userId:string) {
 export async function disconnectGmail(userId:string) {
  const c=await prisma.gmailConnection.findUnique({where:{userId}});
  if(c){try{await fetch("https://oauth2.googleapis.com/revoke",{method:"POST",headers:{"content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({token:decryptTotpSecret(c.refreshTokenCipher)})});}catch{} await prisma.gmailConnection.delete({where:{userId}});}
-}
-function b64url(b:Buffer){return b.toString("base64").replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
-function clean(s:string){return s.replace(/[\r\n]/g," ").trim();}
-export function buildMimeMessage(x:{from:string;to:string;subject:string;body:string;attachment:{fileName:string;mimeType:string;content:Buffer}}) {
- const boundary="ajob_"+randomBytes(18).toString("hex"), filename=clean(x.attachment.fileName).replace(/["\\]/g,"_");
- const lines=["From: "+clean(x.from),"To: "+clean(x.to),"Subject: "+clean(x.subject),"MIME-Version: 1.0",'Content-Type: multipart/mixed; boundary="'+boundary+'"',"","--"+boundary,'Content-Type: text/plain; charset="UTF-8"',"Content-Transfer-Encoding: 8bit","",x.body,"--"+boundary,"Content-Type: "+clean(x.attachment.mimeType)+'; name="'+filename+'"',"Content-Transfer-Encoding: base64",'Content-Disposition: attachment; filename="'+filename+'"',"",x.attachment.content.toString("base64").replace(/.{1,76}/g,"$&\r\n").trimEnd(),"--"+boundary+"--",""];
- return b64url(Buffer.from(lines.join("\r\n"),"utf8"));
 }
 async function api(userId:string,path:string,method:string,body?:unknown) {
  const t=await getToken(userId), r=await fetch(API+"/"+path,{method,headers:{authorization:"Bearer "+t.token,...(body?{"content-type":"application/json"}:{})},...(body?{body:JSON.stringify(body)}:{}),cache:"no-store"});
