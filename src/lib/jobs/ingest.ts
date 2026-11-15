@@ -61,6 +61,6 @@ export async function ingestJob(input: unknown) {
     create: { source: job.source, sourceJobId: job.sourceJobId, ...data },
     update: data
   });
-  revalidateTag("public-global-jobs");
+  revalidateTag("public-global-jobs", "max");
   return { outcome: existing ? "updated" as const : "created" as const };
 }
