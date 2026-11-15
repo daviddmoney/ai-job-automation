@@ -2,6 +2,7 @@
 
 **Repository:** `daviddmoney/ai-job-automation`  
 **Visibility:** Public  
+**Candidate commit with completed automated evidence:** `4215675c62ff72153e252ff05114a8cddcea9bcd`  
 **Assessment status:** In progress; not a formal certification.  
 **Release rule:** Do not deploy with real customer data until every applicable release gate has evidence on the exact release commit.
 
@@ -9,11 +10,11 @@
 
 - [x] Repository visibility is public.
 - [x] `.gitignore` excludes `.env` and `.env.*` while allowing the placeholder-only `.env.example`.
-- [x] Add a Gitleaks configuration that allowlists only the exact published RFC 6238 test vector in `tests/provider-hardening.test.mjs`; all default rules remain enabled.
-- [x] Add a dedicated full-history Gitleaks workflow that fetches all refs and retains a redacted SARIF report.
-- [x] Baseline full-history scan: 398 reachable commits across 9 fetched branches, no tags; Gitleaks reported no leaks on PR #7 head `068d9816152188652f328cde4cc24bf1a49f3315`.
-- [ ] Re-run full-history and incremental Gitleaks scans on the final reconciled candidate commit and verify the RFC test-vector allowlist removes only that false positive.
-- [ ] Review any new findings; revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider and GitHub tokens).
+- [x] Gitleaks configuration keeps default rules and narrowly allowlists only the published RFC 6238 test vector in `tests/provider-hardening.test.mjs`.
+- [x] Dedicated full-history Gitleaks workflow fetches all refs and retains a redacted SARIF report.
+- [x] Full-history scan passed on `4215675c62ff72153e252ff05114a8cddcea9bcd`: 407 reachable commits across 9 fetched branches, no tags, and Gitleaks reported `no leaks found`.
+- [x] Incremental Gitleaks scan passed on the candidate after the narrow test-vector allowlist was added.
+- [ ] Review any future findings; revoke and rotate every confirmed exposed credential (Google OAuth, Gmail, Railway, database, job-board, translation, email, AI provider and GitHub tokens).
 - [ ] If a real secret is found, remove it from history using a coordinated rewrite plan, verify rewritten history and coordinate fresh clones. Do not rely on deleting it in a later commit.
 - [ ] Verify GitHub Secret Scanning, push protection, Dependabot alerts and private vulnerability reporting settings in the repository UI.
 - [ ] Check provider dashboards, deployment logs, Actions logs/artifacts, PRs, issues and releases for exposures outside Git history.
@@ -21,13 +22,12 @@
 ## 2. Static analysis and dependency security
 
 - [x] Preserve the exact newer `main` CodeQL workflow with `security-events: write` and `upload: always`.
-- [x] CodeQL SARIF upload succeeded on the PR #7 hardening branch; a fresh run on the final candidate is required.
-- [x] Add dependency-review workflow for pull requests.
-- [x] Add weekly Dependabot updates for npm and GitHub Actions.
-- [x] Add Semgrep, npm audit, Gitleaks and Snyk security scans.
-- [x] Candidate dependency baseline at `d4b7996d9cc5dfe5f0e733c793bea2aec24e337f`: npm audit report contained 0 info, 0 low, 0 moderate, 0 high and 0 critical findings; Snyk and Semgrep jobs passed.
-- [ ] Re-run npm audit, Snyk, Semgrep and dependency review on the final reconciled candidate SHA; preserve report artifacts.
-- [ ] Confirm the same zero-high/zero-critical result after the candidate is merged into `main`. The older main dependency tree previously reported 8 high and 1 moderate vulnerabilities.
+- [x] CodeQL completed successfully on `4215675c62ff72153e252ff05114a8cddcea9bcd`; SARIF upload was accepted and upload status completed.
+- [x] Dependency Review completed successfully on `4215675c62ff72153e252ff05114a8cddcea9bcd`.
+- [x] Weekly Dependabot updates are configured for npm and GitHub Actions.
+- [x] npm audit, Semgrep, Gitleaks and Snyk completed successfully on `4215675c62ff72153e252ff05114a8cddcea9bcd`.
+- [x] npm audit JSON report on `4215675c62ff72153e252ff05114a8cddcea9bcd`: 0 info, 0 low, 0 moderate, 0 high and 0 critical vulnerabilities (197 dependencies).
+- [ ] Confirm the same zero-high/zero-critical result after this candidate is merged into `main`. The older main dependency tree previously reported 8 high and 1 moderate vulnerabilities.
 - [ ] Pin third-party GitHub Actions to reviewed immutable commit SHAs and update actions to supported Node runtimes.
 - [ ] Protect `main` with reviewed pull requests, required CI/security checks, no force-push and no branch deletion.
 
@@ -49,10 +49,10 @@
 
 - [x] Persistent IP/account rate limiting is implemented on inspected authentication and sensitive endpoints.
 - [x] Spoofable X-Forwarded-For/X-Real-IP values are not trusted; the application expects a trusted edge-injected client-IP header with shared secret.
-- [x] Streamed JSON body byte limits are implemented on the inspected registration, verification, 2FA, preferences, applications, saved jobs, translation, recovery-code and admin-import endpoints.
-- [ ] Configure and verify the trusted proxy header injection and restrict direct origin access in the actual Railway environment.
+- [x] Streamed JSON body byte limits are implemented on inspected registration, verification, 2FA, preferences, applications, saved jobs, translation, recovery-code and admin-import endpoints.
+- [ ] Configure and verify trusted proxy header injection and restrict direct origin access in the actual Railway environment.
 - [ ] Add rate-limit bucket cleanup, monitoring and alerting; validate thresholds and client-IP behavior behind the production proxy.
-- [x] Add disposable PostgreSQL integration tests for saved-job/application ownership isolation.
+- [x] Disposable PostgreSQL migration validation and saved-job/application account-isolation integration test passed on `4215675c62ff72153e252ff05114a8cddcea9bcd`.
 - [ ] Expand ownership-scoped tests to every user-owned resource, including CV files, Gmail connections, preferences and every API read/update/delete/download path.
 - [ ] Complete a live two-account test proving one user cannot access another user's data.
 - [ ] Add malware scanning and quarantine for uploaded CVs; verify size, MIME, file signature, storage encryption, authorization and deletion.
@@ -61,8 +61,8 @@
 
 ## 5. CI, database, deployment and operations
 
-- [x] Candidate CI passed at `d4b7996d9cc5dfe5f0e733c793bea2aec24e337f`: `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build.
-- [ ] Re-run all CI and migration-validation workflows on the final reconciled candidate SHA.
+- [x] Candidate CI passed on `4215675c62ff72153e252ff05114a8cddcea9bcd`: `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build.
+- [x] Migration Validation passed on `4215675c62ff72153e252ff05114a8cddcea9bcd`: all Prisma migrations applied to disposable PostgreSQL, representative multi-user/job data inserted, account-isolation test passed, migration status confirmed and typecheck passed.
 - [ ] Back up the real staging database and prove restore before applying migrations; compare row counts and data integrity afterward.
 - [ ] Confirm `prisma migrate status` on staging and rehearse rollback.
 - [ ] Confirm Railway project, service and environment; verify deployed SHA equals approved release SHA.
@@ -79,7 +79,7 @@
 - [ ] Verify disconnect/revocation and account ownership with two separate test users.
 - [ ] Do not send an external email without explicit user approval and a controlled test recipient.
 - [ ] Complete privacy, retention, data-processing and cross-border transfer reviews for international users.
-- [x] Add `SECURITY.md` with private vulnerability-disclosure instructions.
+- [x] `SECURITY.md` provides private vulnerability-disclosure instructions.
 - [ ] Enable GitHub private vulnerability reporting and verify the reporting route.
 - [ ] Complete an independent penetration test and remediate findings.
 - [ ] Complete an independent OWASP ASVS Level 2 assessment with evidence, reviewer and sign-off.
