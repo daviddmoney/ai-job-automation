@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { revalidateTag } from "next/cache";
 import { JobPostingStatus, JobWorkMode } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../prisma";
 
 const optionalUrl = z.string().url().max(2048).refine(value => ["http:", "https:"].includes(new URL(value).protocol)).nullable().optional();
 export const incomingJobSchema = z.object({
