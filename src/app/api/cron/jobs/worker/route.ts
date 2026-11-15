@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const totals = await syncJobSources(
       adapters,
       new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      { beforeIngest: assertLease }
+      { beforeIngest: assertLease, lease: { taskId: task.id, lockToken: task.lockToken } }
     );
     await assertLease();
     // Prisma's JSON input type requires JSON-compatible object index signatures.
