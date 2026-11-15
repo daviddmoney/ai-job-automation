@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,8 +8,13 @@ export const metadata: Metadata = {
   },
   description: "Discover global opportunities, prepare stronger applications and manage your career journey in one multilingual, human-controlled workspace.",
   applicationName: "AI Job Automation",
-  robots: { index: true, follow: true },
-  themeColor: "#080b14"
+  robots: { index: true, follow: true }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#080b14",
+  width: "device-width",
+  initialScale: 1
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
