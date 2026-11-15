@@ -20,8 +20,8 @@ export default function TwoFactorSettingsPage() {
   async function startEmail() { await post("/api/security/2fa/email/start"); }
   async function confirmEmail() { await post("/api/security/2fa/email/confirm", { code }); }
   async function generateRecoveryCodes() { const data = await post("/api/account/two-factor/recovery-codes", { password, code }); if (Array.isArray(data?.recoveryCodes)) { setRecoveryCodes(data.recoveryCodes); setPassword(""); setCode(""); } }
-  return <main style={{ maxWidth: 680, margin: "56px auto", padding: 24 }}>
-    <a href="/dashboard" style={{ color: "#3657a7" }}>← Dashboard</a>
+  return <main className="form-page" style={{maxWidth:680}}> 
+    <a href="/dashboard" className="action-link">← Back to your workspace</a>
     <h1 style={{ fontSize: 32 }}>Two-factor authentication</h1>
     <p style={{ color: "#596579", lineHeight: 1.6 }}>Add a second sign-in check to protect your account. Choose email codes or an authenticator app.</p>
     <section style={card}><h2>Email verification code</h2><p>Send a confirmation code to your verified email, then enter it below to enable email-based two-factor authentication.</p><button disabled={busy} onClick={startEmail} style={button}>Send email confirmation code</button><div style={{ display: "flex", gap: 8, marginTop: 12 }}><input value={code} onChange={e=>setCode(e.target.value)} placeholder="Six-digit code" inputMode="numeric" maxLength={6} style={field}/><button disabled={busy || code.length!==6} onClick={confirmEmail} style={button}>Confirm</button></div></section>

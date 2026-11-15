@@ -19,7 +19,7 @@ export default function JobPreferencesForm() {
   catch { setMessage("Unable to reach the server."); } finally { setSaving(false); }
  }
  if (loading) return <p>Loading your preferences…</p>;
- return <form onSubmit={save} style={{ background: "white", border: "1px solid #e5e9f0", borderRadius: 14, padding: 22 }}>
+ return <form className="form-card" onSubmit={save} style={{ background: "var(--panel)", border: "1px solid #e5e9f0", borderRadius: 14, padding: 22 }}>
   <label style={field}><strong>Preferred countries</strong><input style={input} value={data.preferredCountries.join(", ")} onChange={e => update("preferredCountries", split(e.target.value))} placeholder="Nigeria, United Kingdom, Canada"/></label>
   <label style={field}><strong>Preferred states / regions</strong><input style={input} value={data.preferredRegions.join(", ")} onChange={e => update("preferredRegions", split(e.target.value))} placeholder="Lagos, England, Ontario"/></label>
   <label style={field}><strong>Preferred cities</strong><input style={input} value={data.preferredCities.join(", ")} onChange={e => update("preferredCities", split(e.target.value))} placeholder="Lagos, London, Toronto"/></label>
