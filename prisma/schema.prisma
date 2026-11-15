@@ -61,6 +61,8 @@ model User {
   applications          Application[]
   savedJobs             SavedJob[]
   auditEvents           AuditEvent[]
+  cvDocuments           CvDocument[]
+  gmailConnection       GmailConnection?
 }
 
 model Account {
@@ -98,7 +100,35 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model CvDocument {\n  id          String   @id @default(cuid())\n  userId      String\n  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n  fileName    String\n  mimeType    String\n  sizeBytes   Int\n  content     Bytes    @db.ByteA\n  isPrimary   Boolean  @default(true)\n  createdAt   DateTime @default(now())\n  updatedAt   DateTime @updatedAt\n  @@index([userId, isPrimary, updatedAt])\n}\n\nmodel GmailConnection {\n  id                 String   @id @default(cuid())\n  userId             String   @unique\n  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n  googleEmail        String\n  accessTokenCipher  String   @db.Text\n  refreshTokenCipher String   @db.Text\n  expiresAt          DateTime\n  scopes             String[]\n  createdAt          DateTime @default(now())\n  updatedAt          DateTime @updatedAt\n}\n\nmodel JobProfile {
+model CvDocument {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  content   Bytes    @db.ByteA
+  isPrimary Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isPrimary, updatedAt])
+}
+
+model GmailConnection {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail        String
+  accessTokenCipher  String   @db.Text
+  refreshTokenCipher String   @db.Text
+  expiresAt          DateTime
+  scopes             String[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model JobProfile {
   id              String   @id @default(cuid())
   userId          String   @unique
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
