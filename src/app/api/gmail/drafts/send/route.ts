@@ -5,10 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { sendGmailDraft } from "@/lib/gmail";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
+import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 export const runtime="nodejs";
 export async function POST(request:NextRequest){
  if(!isSameOriginRequest(request))return NextResponse.json({message:"Request rejected."},{status:403});
  const s=await auth();if(!s?.user?.id)return NextResponse.json({message:"Sign in required."},{status:401});
+ try{const key=requestRateLimitKey(request,"gmail-draft-send",s.user.id);if(!(await consumeRateLimit(key,5,300)))return NextResponse.json({message:"Too many send attempts. Wait before retrying."},{status:429});}catch{return NextResponse.json({message:"Security service unavailable."},{status:503});}
  const parsed=await readLimitedJson(request,8*1024);if(!parsed.ok)return NextResponse.json({message:parsed.message},{status:parsed.status});
  const p=z.object({draftId:z.string().min(1).max(200),confirmSend:z.literal(true)}).safeParse(parsed.data);
  if(!p.success)return NextResponse.json({message:"Explicit send confirmation is required."},{status:400});
