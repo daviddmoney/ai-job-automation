@@ -20,5 +20,5 @@ export default function EmailSettings({connected,email,cv:initialCv,error}:Props
  </main>;
 }
 const card={border:"1px solid #e5e9f0",borderRadius:14,padding:20,marginTop:18};
-const button={background:"#24458b",color:"white",border:0,borderRadius:8,padding:"10px 16px",cursor:"pointer"};
+const button={background:"#24458b",color:"white",border:0,borderRadius:8,padding:"10px 16px"};
 const link={display:"inline-block",background:"#24458b",color:"white",borderRadius:8,padding:"10px 16px",textDecoration:"none"};
