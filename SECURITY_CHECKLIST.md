@@ -64,7 +64,8 @@
 ## 6. Public product and operational readiness
 
 - [ ] Update public documentation so it accurately describes the current global/multilingual product and does not retain obsolete Lagos-only or private-repository statements.
-- [x] Add `SECURITY.md` with private vulnerability disclosure instructions; enable GitHub private vulnerability reporting in repository settings and verify the route.
+- [x] Add `SECURITY.md` with private vulnerability disclosure instructions.
+- [ ] Enable GitHub private vulnerability reporting in repository settings and verify the reporting route.
 - [ ] Review public issue templates, support logs, demo data and screenshots for personal or confidential information.
 - [ ] Complete an independent penetration test or documented security assessment before handling real customer data.
 
