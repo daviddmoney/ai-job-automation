@@ -12,12 +12,12 @@ export default async function SavedJobsPage() {
     orderBy: { createdAt: "desc" },
     take: 100
   });
-  return <main style={{ maxWidth: 1080, margin: "0 auto", padding: "48px 24px" }}>
-    <a href="/dashboard" style={{ color: "#3657a7" }}>← Dashboard</a>
-    <h1 style={{ fontSize: 36 }}>My saved jobs</h1>
+  return <main className="page-shell">
+    <a href="/dashboard" className="breadcrumb">← Back to your workspace</a>
+    <header className="page-heading"><div><span className="eyebrow">YOUR SHORTLIST</span><h1>Saved opportunities</h1></div></header>
     <p style={{ color: "#596579" }}>Only you can see the opportunities saved to your account.</p>
-    {saved.length === 0 ? <p style={{ marginTop: 24, color: "#596579" }}>You have not saved any jobs yet. <a href="/jobs" style={{ color: "#3657a7" }}>Browse Lagos opportunities</a>.</p> : <section style={{ display: "grid", gap: 14, marginTop: 24 }}>
-      {saved.map(item => <article key={item.id} style={card}>
+    {saved.length === 0 ? <p style={{ marginTop: 24, color: "#596579" }}>You have not saved any jobs yet. <a href="/jobs" style={{ color: "#3657a7" }}>Browse global opportunities</a>.</p> : <section className="job-list">
+      {saved.map(item => <article key={item.id} className="job-card">
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div><h2 style={{ fontSize: 19, margin: "0 0 6px" }}>{item.jobPosting.title}</h2><p style={{ margin: 0, fontWeight: 700 }}>{item.jobPosting.company}</p><p style={{ color: "#596579", fontSize: 14 }}>{item.jobPosting.locationText} · {item.jobPosting.workMode.toLowerCase()}</p><p style={{ color: "#788397", fontSize: 12 }}>Status: {item.jobPosting.status.toLowerCase()}</p></div>
           <SaveJobButton jobId={item.jobPostingId} initiallySaved={true}/>
