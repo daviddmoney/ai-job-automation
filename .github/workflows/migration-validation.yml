@@ -1,0 +1,63 @@
+name: Migration Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "prisma/**"
+      - ".github/workflows/migration-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-validation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma generate
+      - name: Apply all migrations to PostgreSQL
+        run: npx prisma migrate deploy
+      - name: Insert representative multi-user and job data
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO "User" ("id", "email", "updatedAt") VALUES
+            ('migration-user-a', 'migration-a@example.invalid', CURRENT_TIMESTAMP),
+            ('migration-user-b', 'migration-b@example.invalid', CURRENT_TIMESTAMP);
+          INSERT INTO "UserJobPreference" ("id", "userId", "updatedAt", "preferredCountries", "worldwideSearch")
+          VALUES ('migration-pref-a', 'migration-user-a', CURRENT_TIMESTAMP, ARRAY['Nigeria'], false);
+          INSERT INTO "JobPosting" ("id", "source", "sourceJobId", "title", "company", "locationText", "country", "updatedAt")
+          VALUES ('migration-job-a', 'migration-test', 'sample-1', 'Accountant', 'Example Employer', 'Lagos, Nigeria', 'Nigeria', CURRENT_TIMESTAMP);
+          INSERT INTO "SavedJob" ("id", "userId", "jobPostingId")
+          VALUES ('migration-save-a', 'migration-user-a', 'migration-job-a');
+          INSERT INTO "Application" ("id", "userId", "jobPostingId", "company", "jobTitle", "workLocation", "updatedAt")
+          VALUES ('migration-app-a', 'migration-user-a', 'migration-job-a', 'Example Employer', 'Accountant', 'Lagos, Nigeria', CURRENT_TIMESTAMP);
+          SQL
+      - name: Run database account-isolation integration test
+        run: npm run test:integration
+      - name: Confirm migration state and schema access
+        run: |
+          npx prisma migrate status
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c 'SELECT COUNT(*) FROM "JobPosting";'
+      - run: npm run typecheck

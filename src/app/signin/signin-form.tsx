@@ -22,7 +22,7 @@ export default function SignInForm() {
       <label style={{ display: "grid", gap: 6 }}>Email address<input name="email" type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} style={field}/></label>
       <label style={{ display: "grid", gap: 6 }}>Password<input name="password" type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} style={field}/></label>
       <label style={{ display: "grid", gap: 6 }}>Second-factor method<select name="secondFactorMethod" value={method} onChange={e=>setMethod(e.target.value)} style={field}><option value="TOTP">Authenticator app</option><option value="EMAIL">Email code</option></select></label>
-      <label style={{ display: "grid", gap: 6 }}>Six-digit code<input name="secondFactorCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} style={field} placeholder="Only required if 2FA is enabled"/></label>
+      <label style={{ display: "grid", gap: 6 }}>Authenticator code or one-time recovery code<input name="secondFactorCode" autoComplete="one-time-code" inputMode="text" maxLength={16} style={field} placeholder="6-digit code or 16-character recovery code"/></label>
       {method === "EMAIL" && <button type="button" disabled={busy || !email || !password} onClick={sendCode} style={secondary}>{busy ? "Sending…" : "Send email sign-in code"}</button>}
       <button type="submit" style={primary}>Sign in securely</button>
     </form>

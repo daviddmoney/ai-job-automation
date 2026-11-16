@@ -47,20 +47,26 @@ function base32Decode(input: string) {
 
 export function createTotpSecret() { return base32Encode(randomBytes(20)); }
 
-export function verifyTotp(secret: string, supplied: string, now = Date.now()) {
-  if (!/^\d{6}$/.test(supplied)) return false;
+export function verifyTotpCounter(secret: string, supplied: string, now = Date.now()): number | null {
+  if (!/^\d{6}$/.test(supplied)) return null;
   const key = base32Decode(secret);
   const counter = Math.floor(now / 30_000);
   for (let offset = -1; offset <= 1; offset++) {
+    const acceptedCounter = counter + offset;
+    if (acceptedCounter < 0) continue;
     const message = Buffer.alloc(8);
-    message.writeBigUInt64BE(BigInt(counter + offset));
+    message.writeBigUInt64BE(BigInt(acceptedCounter));
     const digest = createHmac("sha1", key).update(message).digest();
     const index = digest[digest.length - 1] & 0x0f;
     const binary = ((digest[index] & 0x7f) << 24) | ((digest[index + 1] & 0xff) << 16) | ((digest[index + 2] & 0xff) << 8) | (digest[index + 3] & 0xff);
     const expected = String(binary % 1_000_000).padStart(6, "0");
-    if (timingSafeEqual(Buffer.from(expected), Buffer.from(supplied))) return true;
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(supplied))) return acceptedCounter;
   }
-  return false;
+  return null;
+}
+
+export function verifyTotp(secret: string, supplied: string, now = Date.now()) {
+  return verifyTotpCounter(secret, supplied, now) !== null;
 }
 
 export function otpDigest(code: string) {

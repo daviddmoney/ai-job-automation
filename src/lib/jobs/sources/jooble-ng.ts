@@ -1,21 +1,13 @@
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
+import type { BoardRunResult } from "@/lib/jobs/sources/board-utils";
 
 interface JoobleJob {
-  id?: string | number;
-  title?: string;
-  location?: string;
-  snippet?: string;
-  salary?: string;
-  source?: string;
-  type?: string;
-  link?: string;
-  company?: string;
-  updated?: string;
+  id?: string | number; title?: string; location?: string; snippet?: string; salary?: string;
+  type?: string; link?: string; company?: string; updated?: string;
 }
-interface JoobleResponse { jobs?: JoobleJob[]; totalCount?: number; }
-
-const SEARCH_TERMS = ["accountant", "accounting", "audit", "finance", "accounts assistant"];
-const REQUEST_TIMEOUT_MS = 8_000;
+interface JoobleResponse { jobs?: JoobleJob[]; }
+const SEARCH_TERMS = ["accounting", "audit", "finance", "graduate trainee", "software engineer", "customer service"];
+const REQUEST_TIMEOUT_MS = 8000;
 const MAX_ATTEMPTS = 3;
 
 async function fetchJooble(endpoint: string, keywords: string): Promise<JoobleResponse> {
@@ -24,22 +16,18 @@ async function fetchJooble(endpoint: string, keywords: string): Promise<JoobleRe
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ keywords, location: "Lagos", radius: "0", page: "1", ResultOnPage: "50", companysearch: false }),
+        body: JSON.stringify({ keywords, location: "Nigeria", page: "1", ResultOnPage: "50" }),
         cache: "no-store",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
       });
       if (response.ok) return await response.json() as JoobleResponse;
-      if (attempt === MAX_ATTEMPTS || (response.status < 500 && response.status !== 429)) {
-        throw new Error(`Jooble request failed: ${response.status}`);
-      }
+      if (attempt === MAX_ATTEMPTS || (response.status < 500 && response.status !== 429)) throw new Error("Jooble request failed: " + response.status);
       const retryAfter = Number(response.headers.get("retry-after"));
-      const delay = Number.isFinite(retryAfter) && retryAfter > 0
-        ? Math.min(retryAfter * 1000, 2_000)
-        : 250 * 2 ** (attempt - 1);
+      const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 2000) : 250 * 2 ** (attempt - 1);
       await new Promise(resolve => setTimeout(resolve, delay));
     } catch (error) {
       if (attempt === MAX_ATTEMPTS) throw error;
-      const transient = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError" || error.message.includes("fetch"));
+      const transient = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name);
       if (!transient) throw error;
       await new Promise(resolve => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
     }
@@ -49,64 +37,46 @@ async function fetchJooble(endpoint: string, keywords: string): Promise<JoobleRe
 
 export class JoobleNigeriaAdapter implements JobSourceAdapter {
   readonly source = "jooble-ng";
-
-  async fetchRecentJobs(options: { since: Date; location: "Lagos, Nigeria" }): Promise<unknown[]> {
+  lastRunReport: BoardRunResult[] = [];
+  async fetchRecentJobs({ since }: { since: Date }): Promise<unknown[]> {
+    this.lastRunReport = [];
     const key = process.env.JOOBLE_NG_API_KEY;
     if (!key) return [];
-    const endpoint = `https://ng.jooble.org/api/${encodeURIComponent(key)}`;
-
-    // Independent keyword searches run concurrently instead of adding their
-    // network latency together. A failed keyword search does not discard
-    // successful results from the other searches.
-    const responses = await Promise.allSettled(SEARCH_TERMS.map((keywords) => fetchJooble(endpoint, keywords)));
-
+    const endpoint = "https://ng.jooble.org/api/" + encodeURIComponent(key);
+    const responses = await Promise.allSettled(SEARCH_TERMS.map(term => fetchJooble(endpoint, term)));
     const successful = responses.filter((result): result is PromiseFulfilledResult<JoobleResponse> => result.status === "fulfilled");
-    if (successful.length === 0 && responses.length > 0) {
-      throw new Error("All Jooble keyword searches failed.");
+    this.lastRunReport = responses.map((result, index) => result.status === "fulfilled"
+      ? { target: SEARCH_TERMS[index], status: "succeeded" as const }
+      : { target: SEARCH_TERMS[index], status: "failed" as const, error: result.reason instanceof Error ? result.reason.message : "JOOBLE_SEARCH_FAILED" });
+    const unique = new Map<string, JoobleJob>();
+    for (const result of successful) for (const job of result.value.jobs ?? []) {
+      const id = String(job.id ?? job.link ?? (job.title ?? "job") + ":" + (job.location ?? ""));
+      if (!unique.has(id)) unique.set(id, job);
     }
-
-    // The same vacancy can appear under multiple search terms.
-    const uniqueJobs = new Map<string, JoobleJob>();
-    for (const result of successful) {
-      for (const job of result.value.jobs ?? []) {
-        const id = String(job.id ?? job.link ?? `${job.title ?? ""}:${job.location ?? ""}`);
-        if (!uniqueJobs.has(id)) uniqueJobs.set(id, job);
-      }
-    }
-
     const collected: unknown[] = [];
-    for (const job of uniqueJobs.values()) {
-      const location = (job.location ?? "").trim();
+    for (const job of unique.values()) {
       const title = (job.title ?? "").trim();
-      const locationLower = location.toLowerCase();
-      const modeText = `${location} ${title} ${job.type ?? ""}`.toLowerCase();
-      // Only the provider location field can establish Lagos eligibility.
-      // A mention of Lagos in a description must not qualify another location.
-      const hasLagos = /\blagos\b/.test(locationLower);
-      if (!hasLagos) continue;
-      const isRemote = /\bremote\b/.test(modeText);
-      const isHybrid = /\bhybrid\b/.test(modeText);
-      const workMode = isRemote ? "REMOTE" : isHybrid ? "HYBRID" : "ONSITE";
-      const date = job.updated && !Number.isNaN(Date.parse(job.updated)) ? new Date(job.updated).toISOString() : null;
-      if (date && new Date(date) < options.since) continue;
-
+      const location = (job.location ?? "Location not specified").trim();
+      const lower = (location + " " + (job.type ?? "")).toLowerCase();
+      const remote = /\bremote\b|\bworldwide\b|\banywhere\b/.test(lower);
+      const hybrid = /\bhybrid\b/.test(lower);
+      const updated = job.updated && !Number.isNaN(Date.parse(job.updated)) ? new Date(job.updated) : null;
+      if (updated && updated < since) continue;
       collected.push({
-        source: this.source,
-        sourceJobId: String(job.id ?? job.link ?? `${title}:${location}`),
-        title,
+        sourceJobId: String(job.id ?? job.link ?? title + ":" + location),
+        title: title || "Untitled role",
         company: (job.company ?? "Undisclosed employer").trim(),
         salaryText: job.salary ?? null,
         employmentType: job.type ?? null,
         description: job.snippet ?? null,
         applicationUrl: job.link ?? null,
         sourceUrl: job.link ?? null,
-        locationText: location.toLowerCase().includes("nigeria") ? location : `${location}, Nigeria`,
-        city: hasLagos ? "Lagos" : null,
-        state: hasLagos ? "Lagos" : null,
+        locationText: /nigeria/i.test(location) ? location : location + ", Nigeria",
         country: "Nigeria",
-        workMode,
-        eligibleLocations: workMode === "REMOTE" && hasLagos ? ["Lagos, Nigeria"] : [],
-        publishedAt: date,
+        workMode: remote ? "REMOTE" : hybrid ? "HYBRID" : "ONSITE",
+        // Jooble does not expose verified remote-eligible countries in this response.
+        eligibleLocations: [],
+        publishedAt: updated?.toISOString() ?? null,
         status: "ACTIVE"
       });
     }

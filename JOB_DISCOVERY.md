@@ -1,24 +1,26 @@
-# Lagos-only job discovery
+# Global job discovery
 
-## Location inclusion rules
-- On-site and hybrid roles must resolve to Lagos, Nigeria (including a clearly stated Lagos State location such as Ikeja, Lagos, Nigeria).
-- Remote roles are included only when the source explicitly lists Lagos or Lagos, Nigeria in the eligible locations.
-- Generic Nigeria-wide remote roles are not assumed to be Lagos-eligible.
-- Records with missing, ambiguous, or out-of-Lagos locations are excluded at ingestion and again at search time.
+## Location and preference rules
+- Job ingestion is global and must not reject a vacancy because it is outside Lagos or Nigeria.
+- Store original location text and structured city, region/state and country where available.
+- Support ONSITE, HYBRID, REMOTE and FLEXIBLE work modes.
+- Remote eligibility must be explicit in the employer/source data. Do not label a role worldwide merely because it says remote.
+- Each user controls preferred countries, regions, cities and work modes through UserJobPreference.
+- Empty location preferences with worldwideSearch enabled mean worldwide discovery.
+- Work authorisation, visa sponsorship and language requirements must not be inferred.
 
-## Import contract
-A staff-only `POST /api/admin/jobs/import` endpoint accepts between 1 and 100 job records. Each record must contain a source name, stable source job ID, title, company, location text, and work mode. URLs must be valid HTTP(S) links. Duplicate source/source-job IDs are upserted.
+## Sources
+- Greenhouse public Job Board API: GREENHOUSE_BOARD_TOKENS.
+- Lever public postings: LEVER_SITE_NAMES.
+- Ashby public posting API: ASHBY_BOARD_NAMES.
+- Jooble Nigeria is optional and requires JOOBLE_NG_API_KEY.
 
-## User experience
-- `/jobs` shows active opportunities published or first discovered within the last 30 days.
-- `/saved-jobs` displays only the signed-in user's saved opportunities.
-- `/applications` tracks each user's own applications and notes; changing a status does not submit anything to an employer.
-- `POST` and `DELETE /api/saved-jobs` use the authenticated session's user ID; the browser cannot specify an owner ID.
+Adapters isolate provider failures so one source does not stop the others. These are not a universal job index. Board identifiers must be curated and sources must be used only where API terms, permissions, rate limits and licensing allow collection.
 
-## Not yet connected
-No external job-board source adapters or live job feeds are configured yet. The staff import endpoint and data model are ready for approved source integrations. Respect each provider's API terms, robots policies, rate limits, and licensing before connecting a source.
+## Import and privacy
+The staff-only import endpoint accepts 1–100 records. Each record requires source, stable source job ID, title, company and location text. URLs must be HTTP(S). Duplicate source/source-job IDs are upserted. Ambiguous location metadata may be retained rather than incorrectly excluded.
 
-## Jooble Nigeria integration
-The first configured provider adapter uses the official Jooble Nigeria publisher API. Obtain a key at https://ng.jooble.org/api/about and store it as `JOOBLE_NG_API_KEY` in the server environment. The adapter searches five accounting/finance-related keyword groups and normalizes returned jobs before the strict Lagos filter. See [JOOBLE_SETUP.md](./JOOBLE_SETUP.md).
+Saved jobs and applications are scoped to the authenticated user. Never trust a browser-supplied owner ID. Applications are tracked only and are not automatically submitted.
 
-A staff member can run a manual sync from `/admin`. A protected cron endpoint is available at `/api/cron/jobs/sync` and requires `Authorization: Bearer <CRON_SECRET>`. Configure a daily hosting-platform schedule only after setting the provider key and cron secret.
+## Scheduled sync
+The protected endpoint is /api/cron/jobs/sync and requires Authorization: Bearer <CRON_SECRET>. Configure a hosting schedule only after approved source board identifiers are supplied and tested.

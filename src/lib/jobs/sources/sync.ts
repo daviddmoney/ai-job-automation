@@ -1,11 +1,8 @@
-import { ingestJob } from "@/lib/jobs/ingest";
+import { ingestJob, ingestJobWithLease } from "@/lib/jobs/ingest";
 import type { JobSourceAdapter } from "@/lib/jobs/sources/adapter";
+import { withJobSyncLeaseGuard } from "@/lib/jobs/sources/lease-guard";
 
-async function mapWithConcurrency<T>(
-  items: T[],
-  concurrency: number,
-  worker: (item: T) => Promise<void>
-) {
+async function mapWithConcurrency<T>(items: T[], concurrency: number, worker: (item: T) => Promise<void>) {
   let nextIndex = 0;
   const runners = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
     while (true) {
@@ -17,43 +14,65 @@ async function mapWithConcurrency<T>(
   await Promise.all(runners);
 }
 
-export async function syncJobSources(adapters: JobSourceAdapter[], since: Date) {
-  const totals = { created: 0, updated: 0, excludedLocation: 0, invalid: 0, sourceErrors: 0 };
-
-  // Fetch independent providers concurrently so one slow source does not
-  // delay the start of every other source.
-  const sourceResults = await Promise.allSettled(
-    adapters.map(async (adapter) => ({
-      adapter,
-      records: await adapter.fetchRecentJobs({ since, location: "Lagos, Nigeria" })
-    }))
-  );
-
+export async function syncJobSources(
+  adapters: JobSourceAdapter[],
+  since: Date,
+  options: { beforeIngest?: () => Promise<void>; ingest?: typeof ingestJob; lease?: { taskId: string; lockToken: string } } = {}
+) {
+  const totals = { created: 0, updated: 0, invalid: 0, sourceErrors: 0, sourcesChecked: 0, boardsSucceeded: 0, boardsFailed: 0 };
+  const providerResults: Array<{ provider: string; status: "succeeded" | "partial" | "failed"; boards: NonNullable<JobSourceAdapter["lastRunReport"]> }> = [];
+  const sourceResults = await Promise.allSettled(adapters.map(async adapter => {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try { return { adapter, records: await adapter.fetchRecentJobs({ since }) }; }
+      catch (error) {
+        lastError = error;
+        if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 400 * 2 ** (attempt - 1)));
+      }
+    }
+    throw lastError;
+  }));
   const work: Array<{ adapter: JobSourceAdapter; record: unknown }> = [];
-  for (const result of sourceResults) {
+  for (let i = 0; i < sourceResults.length; i++) {
+    const result = sourceResults[i];
+    const adapter = adapters[i];
     if (result.status === "rejected") {
-      totals.sourceErrors++;
+      const boards = adapter.lastRunReport ?? [{ target: adapter.source, status: "failed" as const, error: result.reason instanceof Error ? result.reason.message : "PROVIDER_FAILED" }];
+      const failed = boards.filter(board => board.status === "failed").length;
+      totals.sourceErrors += Math.max(1, failed);
+      totals.boardsSucceeded += boards.length - failed;
+      totals.boardsFailed += failed;
+      providerResults.push({ provider: adapter.source, status: "failed", boards });
       continue;
     }
-    for (const record of result.value.records) work.push({ adapter: result.value.adapter, record });
+    totals.sourcesChecked++;
+    const boards = adapter.lastRunReport ?? [{ target: adapter.source, status: "succeeded" as const }];
+    const failed = boards.filter(board => board.status === "failed").length;
+    totals.boardsSucceeded += boards.length - failed;
+    totals.boardsFailed += failed;
+    if (failed) totals.sourceErrors += failed;
+    providerResults.push({ provider: adapter.source, status: failed === 0 ? "succeeded" : failed === boards.length ? "failed" : "partial", boards });
+    for (const record of result.value.records) work.push({ adapter, record });
   }
-
-  // Bound database pressure while avoiding the old one-record-at-a-time
-  // ingestion bottleneck. Each record remains independently validated.
   await mapWithConcurrency(work, 8, async ({ adapter, record }) => {
     try {
-      const result = await ingestJob({
-        ...(typeof record === "object" && record !== null ? record : {}),
-        source: adapter.source
-      });
+      const input = { ...(typeof record === "object" && record !== null ? record : {}), source: adapter.source };
+      const result = options.lease
+        ? await withJobSyncLeaseGuard(
+            options.beforeIngest ?? (async () => {}),
+            () => ingestJobWithLease(input, options.lease!)
+          )
+        : await withJobSyncLeaseGuard(
+            options.beforeIngest ?? (async () => {}),
+            () => (options.ingest ?? ingestJob)(input)
+          );
       if (result.outcome === "created") totals.created++;
       else if (result.outcome === "updated") totals.updated++;
-      else if (result.outcome === "excluded_location") totals.excludedLocation++;
       else totals.invalid++;
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message === "JobSyncLeaseLost") throw error;
       totals.sourceErrors++;
     }
   });
-
-  return totals;
+  return { ...totals, providers: providerResults, retryPolicy: "Provider and board failures are reported independently; the next scheduled run retries configured targets, with successful records safely upserted by provider job ID." };
 }

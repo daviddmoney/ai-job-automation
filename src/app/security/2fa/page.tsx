@@ -5,6 +5,8 @@ import { useState } from "react";
 export default function TwoFactorSettingsPage() {
   const [setup, setSetup] = useState<{ secret: string; otpauthUrl: string } | null>(null);
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   async function post(url: string, body?: unknown) {
@@ -17,12 +19,14 @@ export default function TwoFactorSettingsPage() {
   async function confirmTotp() { await post("/api/security/2fa/totp/confirm", { code }); }
   async function startEmail() { await post("/api/security/2fa/email/start"); }
   async function confirmEmail() { await post("/api/security/2fa/email/confirm", { code }); }
-  return <main style={{ maxWidth: 680, margin: "56px auto", padding: 24 }}>
-    <a href="/dashboard" style={{ color: "#3657a7" }}>← Dashboard</a>
+  async function generateRecoveryCodes() { const data = await post("/api/account/two-factor/recovery-codes", { password, code }); if (Array.isArray(data?.recoveryCodes)) { setRecoveryCodes(data.recoveryCodes); setPassword(""); setCode(""); } }
+  return <main className="form-page" style={{maxWidth:680}}> 
+    <a href="/dashboard" className="action-link">← Back to your workspace</a>
     <h1 style={{ fontSize: 32 }}>Two-factor authentication</h1>
     <p style={{ color: "#596579", lineHeight: 1.6 }}>Add a second sign-in check to protect your account. Choose email codes or an authenticator app.</p>
     <section style={card}><h2>Email verification code</h2><p>Send a confirmation code to your verified email, then enter it below to enable email-based two-factor authentication.</p><button disabled={busy} onClick={startEmail} style={button}>Send email confirmation code</button><div style={{ display: "flex", gap: 8, marginTop: 12 }}><input value={code} onChange={e=>setCode(e.target.value)} placeholder="Six-digit code" inputMode="numeric" maxLength={6} style={field}/><button disabled={busy || code.length!==6} onClick={confirmEmail} style={button}>Confirm</button></div></section>
     <section style={card}><h2>Authenticator app</h2><p>Use an authenticator app that supports standard time-based one-time passwords (TOTP).</p><button disabled={busy} onClick={startTotp} style={button}>Set up authenticator</button>{setup && <div style={{ marginTop: 14 }}><p>Enter this setup key manually in your authenticator app:</p><code style={{ overflowWrap: "anywhere" }}>{setup.secret}</code><p style={{ fontSize: 12, color: "#697589" }}>The QR-compatible provisioning URI is available in the setup response. Keep the secret private.</p><div style={{ display: "flex", gap: 8 }}><input value={code} onChange={e=>setCode(e.target.value)} placeholder="Six-digit code" inputMode="numeric" maxLength={6} style={field}/><button disabled={busy || code.length!==6} onClick={confirmTotp} style={button}>Confirm</button></div></div>}</section>
+    <section style={card}><h2>Authenticator recovery codes</h2><p>Generate ten one-time backup codes. You must have authenticator-app two-factor authentication enabled. Generating a new set invalidates the previous set.</p><label style={{ display: "grid", gap: 6 }}>Current account password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} style={field}/></label><label style={{ display: "grid", gap: 6, marginTop: 10 }}>Current authenticator code<input value={code} onChange={e=>setCode(e.target.value)} inputMode="numeric" maxLength={6} placeholder="Six-digit code" style={field}/></label><button disabled={busy || !password || code.length!==6} onClick={generateRecoveryCodes} style={{...button, marginTop: 12}}>Generate new recovery codes</button>{recoveryCodes.length>0 && <div style={{ marginTop: 14 }}><strong>Save these now. They will not be shown again.</strong><pre style={{ whiteSpace: "pre-wrap", background: "#f3f5f8", padding: 14, borderRadius: 8 }}>{recoveryCodes.join("\\n")}</pre></div>}</section>
     {message && <p role="status" style={{ marginTop: 16 }}>{message}</p>}
   </main>;
 }

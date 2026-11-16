@@ -1,13 +1,7 @@
-import { createHmac } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { requestRateLimitKey } from "@/lib/request-identity";
 
-export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = request.headers.get("x-real-ip") || forwarded || "unknown";
-  return createHmac("sha256", secret).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
-}
+export { requestRateLimitKey, verifiedClientIp } from "@/lib/request-identity";
 
 /** Atomic PostgreSQL counter. The key is a keyed hash, not a raw IP or email address. */
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) {

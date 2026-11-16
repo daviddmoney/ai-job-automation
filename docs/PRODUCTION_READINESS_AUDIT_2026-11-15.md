@@ -1,50 +1,62 @@
-# Production readiness audit — 15 November 2026
+# Public-release security and production-readiness audit
 
-## Scope and method
+**Repository:** `daviddmoney/ai-job-automation`  
+**Audit date:** 15 November 2026  
+**Candidate commit:** `0e701976e70849ec69c97f7715a8db69e5319f0a`  
+**Candidate PR:** #1 (open; 106 changed files; 191 commits; 0 commits behind current main)  
+**Status:** Automated repository checks passed on this candidate. Production release remains NO-GO pending operational and independent-assessment gates. This is not a formal certification.
 
-This snapshot independently inspects the repository's current `main` branch and compares it with the open remediation work. It does not claim access to Railway runtime logs, staging database credentials/data, Google OAuth consent, or a real user session.
+## Source and reconciliation
 
-## Production source of truth
+- Main before reconciliation: `ef3105afe58e6637806d9568521a297cdc2da9d7`
+- Candidate commit: `0e701976e70849ec69c97f7715a8db69e5319f0a`
+- Candidate branch is 191 commits ahead and 0 behind `main`; merge base is current main.
+- The five main-side commits were reconciled with a normal two-parent merge commit; no force-push was used.
+- The exact newer `main` CodeQL SARIF workflow was preserved.
+- All non-CodeQL third-party workflow actions are pinned to immutable commit SHAs and Node 24-compatible releases. The exact CodeQL workflow retains its original `@v4` checkout/upload-artifact references and logs a non-blocking Node 20 deprecation warning.
+- The obsolete privileged Next.js upgrade workflow with `contents: write` and an automatic branch push was removed after the upgrade was completed.
 
-- Repository: `daviddmoney/ai-job-automation`
-- Branch: `main`
-- Latest commit observed: `46dd5338192750ceac74884efacea7cc71828af4`
-- Commit: https://github.com/daviddmoney/ai-job-automation/commit/46dd5338192750ceac74884efacea7cc71828af4
+## Automated evidence on the candidate commit
 
-## Findings
-
-| Area | Result | Evidence and interpretation |
+| Control | Evidence | Result |
 |---|---|---|
-| Main-branch CI | FAIL / incomplete | `.github/workflows/ci.yml` on main runs install, Prisma generation, typecheck and build. It does not configure a PostgreSQL service, run the database integration suite, or validate migrations. No CI status check appeared in the combined status returned for the observed main SHA. |
-| CodeQL / Code Scanning | FAIL on main | `.github/workflows/codeql.yml` is absent from main. The prior security feature branch's CodeQL workflow explicitly used `upload: never` and only uploaded a SARIF artifact. An artifact is not Code Scanning ingestion. PR #6 adds a mainline workflow with `upload: always`; it remains an unmerged draft and requires Code Security entitlement/availability plus an observed successful upload and visible alert listing. |
-| Dependency/security checks | NOT VERIFIED on main | Main's package manifest still specifies Next.js `^15.5.6` and Nodemailer `^7.0.10`. Security scan workflows exist in feature-branch PR #1, not on main. Current scan results for main were not established in this audit. |
-| Staging migration | NOT VERIFIED | PR #1 includes a migration-validation workflow that applies migrations to a disposable PostgreSQL service and runs integration tests. Its runbook explicitly states this does not replace validation against the actual staging database. No staging migration status, backup/restore proof, or before/after data integrity evidence was supplied. |
-| Tenant isolation | PARTIAL / NOT VERIFIED end to end | Feature-branch test `tests/database-isolation.integration.mjs` checks that saved jobs and applications queried by userId are not visible to another test user. This is useful but does not establish isolation across every user-owned resource, CV files, Gmail connections, preferences, API authorization paths, or a live two-account smoke test. |
-| Railway deployment | PARTIAL | Main's combined status for commit `46dd533...` returned two green Railway status checks. They identify two Railway services/environments, but do not prove which one is the intended production environment, the deployed commit SHA, a live `/api/health` response with `database: ok`, or a real-user smoke test. The health endpoint and Railway healthcheck configuration are present in the feature PR, not main. |
-| Gmail OAuth and PDF attachment | PARTIAL / NOT VERIFIED live | Feature-branch code implements OAuth token exchange/refresh and PDF MIME attachment creation; MIME unit tests check exact attachment bytes and header sanitisation. No authorised live OAuth connection, token refresh against Google, real Gmail draft verification, or explicit test send/receipt was evidenced. |
-| Branch consolidation | INCOMPLETE | PR #1 contains substantial global/multilingual/security/database/deployment work and remains open. PR #4 is an open Dependabot update. PR #6 is a new draft PR for the CodeQL upload fix. The feature work must be rebased/validated against current main before merging; do not assume old feature-branch checks certify current main. |
+| Full-history secret scan | Actions run #43732745783 | PASS — 435 reachable commits, 9 fetched branches, no tags; Gitleaks v8.30.1 reported no leaks; redacted SARIF retained |
+| Incremental secret scan | Security scans run #43732745842 | PASS — Gitleaks SARIF contained 0 results |
+| Dependency audit | npm audit artifact from run #43732745842 | PASS — 0 info, 0 low, 0 moderate, 0 high, 0 critical across 197 dependencies |
+| Snyk | Security scans run #43732745842 | PASS — 76 dependencies tested, 0 issues and 0 vulnerable paths at high-severity threshold |
+| Semgrep | Security scans run #43732745842 | PASS — uploaded SARIF contained 0 results |
+| Dependency Review | Actions run #43732745841 | PASS |
+| CodeQL / SARIF | Actions run #43732745884 | PASS — successful upload; SARIF contained 0 results; upload status complete |
+| Application CI | Actions run #43732745854 | PASS — `npm ci`, Prisma generation, unit tests, typecheck, disposable PostgreSQL integration tests and production build |
+| Migration Validation | Actions run #43732745762 | PASS — migrations applied to disposable PostgreSQL, representative multi-user data inserted, account-isolation test passed, migration status confirmed and typecheck passed |
+| DeepSeek review | Actions run #43732745732 | Workflow non-blocking; provider review unavailable due insufficient balance, so no review comment was published |
 
-## Changes made in this remediation pass
+The earlier incremental Gitleaks scan flagged one published RFC 6238 TOTP test vector in `tests/provider-hardening.test.mjs`. The narrow allowlist is limited to that exact value and file; default Gitleaks rules remain enabled. The subsequent full-history and incremental scans passed with zero findings.
 
-1. Created branch `fix/production-readiness-sarif-mainline` from the observed main SHA.
-2. Added `.github/workflows/codeql.yml` with CodeQL analysis and `upload: always`, while preserving a SARIF artifact for audit.
-3. Opened draft PR #6: https://github.com/daviddmoney/ai-job-automation/pull/6
-4. The PR is not merged. Its workflow has not yet produced verifiable run/check results in the evidence available at audit time.
+## Additional application hardening
 
-## Required launch gates
+- Gmail draft create/update/send routes now enforce streamed JSON request-size limits.
+- CV uploads enforce a streamed multipart byte ceiling before form parsing.
+- Gmail connect, draft create/update/send and CV upload now have per-user rate limits.
+- Gmail OAuth tokens and CV documents use an HKDF-derived, domain-separated AES-256-GCM subkey. Legacy ciphertext remains readable and is re-encrypted lazily.
+- New tests cover multipart request limits and Gmail encryption/domain separation; the complete candidate CI test suite passed.
+- DeepSeek review is optional and non-blocking when the external provider is unavailable.
 
-1. Enable GitHub Code Security/code scanning for this private repository if available on the repository's plan. Verify PR #6 CodeQL run succeeds, SARIF is accepted, and findings are visible under Security > Code scanning alerts.
-2. Consolidate PR #1 and related branches onto current main. Resolve conflicts and ensure Next.js/dependency updates, Gmail attachment code, migration files, tenant tests, Railway config and docs are all in the resulting mainline before considering a release.
-3. Run all required CI and security workflows on the exact candidate release commit. Include a real PostgreSQL service in CI and the relevant database/tenant integration tests.
-4. Back up the real staging database and verify that the backup is restorable. Apply the exact latest Prisma migrations to staging, confirm `prisma migrate status`, compare representative row counts, and run separate-account smoke tests. Preserve logs and results as release evidence.
-5. Identify the intended Railway project, service and environment. Confirm the deployed commit SHA matches the approved candidate; call the live `/api/health` endpoint and verify `status: ok` and `database: ok`; perform a real-user smoke test for sign-in, job search, saved jobs, application tracking and account separation.
-6. Complete an explicitly authorised Gmail OAuth test using a designated test account. Verify consent/scopes, refresh-token persistence, create a draft containing a non-sensitive test PDF, inspect the attachment in Gmail, and only send to a controlled test recipient after explicit approval.
-7. Produce a final release report with immutable commit SHA, workflow run links, Code Scanning evidence, staging migration/backup evidence, Railway environment/deployment evidence, health response and smoke-test results.
+## Findings and remaining release gates
 
-## Launch decision
+1. **Credential exposure:** No Gitleaks findings were reported in the latest 435-commit, 9-branch scan. This does not rule out credentials outside Git history, unsupported formats, or exposures in external logs/provider dashboards. Rotate any credential known to have been exposed independently of this scan.
+2. **Main branch dependency baseline:** The older `main` dependency tree reported 8 high and 1 moderate vulnerabilities. The candidate dependency tree reports zero; these fixes are not in `main` until PR #1 is merged.
+3. **Authentication and recovery:** Candidate implements Argon2id, email verification, encrypted TOTP, replay protection and recovery-code foundations. Audited 2FA disable/recovery, OAuth account-linking review, session revocation and full concurrency tests remain required.
+4. **Tenant isolation:** Disposable PostgreSQL migration and saved-job/application isolation tests passed. Full ownership tests for all resources and a live two-account test remain required, including CVs, Gmail connections, preferences and all API paths.
+5. **Abuse controls:** Persistent rate limits and trusted-proxy header validation are implemented. Production proxy configuration, origin restriction, rate-limit cleanup, alerting and abuse monitoring still need staging verification.
+6. **Database:** Migrations passed against disposable CI PostgreSQL. A real staging backup/restore rehearsal, staging migration, data-integrity checks and rollback plan have not been evidenced.
+7. **Railway:** Provider status checks alone do not prove the intended production environment, deployed commit SHA or database health. Verify the approved SHA, live health endpoint, authenticated flows and account isolation in staging.
+8. **Gmail:** OAuth and binary PDF attachment code and MIME tests are present. Live consent, token refresh, draft read-back and PDF attachment verification in a designated test mailbox remain unverified. Do not send an external email without explicit approval.
+9. **GitHub repository settings:** Branch protection/ruleset enforcement, private vulnerability reporting and native secret-scanning/push-protection settings still require owner-side verification. The connected inspection could not read branch protection settings.
+10. **Independent assurance:** No independent penetration-test report or OWASP ASVS Level 2 assessor sign-off has been supplied.
 
-**NO-GO / NOT READY TO LAUNCH based on evidence currently available.**
+## Release decision
 
-This is an evidence-based hold, not a claim that every implementation is defective. The repository contains useful feature-branch implementations, and the latest main commit has green Railway provider status checks, but the required checks have not all been demonstrated on the current production branch and the real staging/live environment evidence is missing.
+**NO-GO for production use with real customer data until the remaining staging, operational and independent-assessment gates are completed.**
 
-No production migration, production deployment, live OAuth consent, or email send was performed by this audit.
+Automated security checks and application CI have passed on the stated candidate commit. The candidate PR remains unmerged; therefore the previous main dependency advisories remain on the public default branch. A successful scanner run is not a security certification. No production migration, production deployment, live Gmail consent, or external email send was performed by this audit.

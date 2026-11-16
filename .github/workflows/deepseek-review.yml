@@ -31,10 +31,11 @@ jobs:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           if [ -z "$DEEPSEEK_API_KEY" ]; then
-            echo "::error::DEEPSEEK_API_KEY repository secret is missing. Add it under Settings > Secrets and variables > Actions > Repository secrets."
-            exit 1
+            echo "::warning::Optional DeepSeek review skipped because DEEPSEEK_API_KEY is not configured."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Collect bounded pull request diff
         if: steps.config.outputs.enabled == 'true'
@@ -62,7 +63,9 @@ jobs:
           PY
 
       - name: Request independent DeepSeek review
+        id: review
         if: steps.config.outputs.enabled == 'true'
+        continue-on-error: true
         shell: bash
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -119,8 +122,15 @@ jobs:
           PY
 
       - name: Publish review comment
-        if: steps.config.outputs.enabled == 'true'
+        if: steps.config.outputs.enabled == 'true' && steps.review.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         run: gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/deepseek-review.md"
+
+      - name: Report optional review unavailable
+        if: steps.config.outputs.enabled != 'true' || steps.review.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::DeepSeek second-opinion review was unavailable. This optional service does not block CI or replace required security checks."
+          echo "DeepSeek second-opinion review was unavailable (missing key, provider balance, or API issue). Required CI and security scans remain authoritative." >> "$GITHUB_STEP_SUMMARY"
