@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "./prisma.ts";
 import { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "@/lib/request-identity";
 
 export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, verifiedClientIp } from "@/lib/request-identity";
