@@ -12,7 +12,7 @@ function mockDatabase(initial, clock = () => new Date()) {
     state,
     async $queryRaw(strings, ...values) {
       const sql = strings.join("?");
-      assert.match(sql, /CURRENT_TIMESTAMP/);
+      assert.match(sql, /clock_timestamp()/);
       assert.match(sql, /"emailVerificationAttempts" < 5/);
       const digest = values[0];
       const email = values[3];
@@ -56,6 +56,13 @@ test("valid unexpired OTP verifies successfully", async () => {
 
 test("expired OTP is rejected using the database clock", async () => {
   const db = mockDatabase({ ...validState(), expiresAt: new Date("2035-01-01T00:04:59Z") }, fixedNow);
+  assert.equal(await consumeEmailVerificationCode(db, db.state.email, digest), false);
+  assert.equal(db.state.emailVerified, null);
+});
+
+test("OTP expires at the exact expiry boundary", async () => {
+  const expiry = new Date("2035-01-01T00:05:00.000Z");
+  const db = mockDatabase({ ...validState(), expiresAt: expiry }, () => expiry);
   assert.equal(await consumeEmailVerificationCode(db, db.state.email, digest), false);
   assert.equal(db.state.emailVerified, null);
 });
