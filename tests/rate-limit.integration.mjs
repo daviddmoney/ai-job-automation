@@ -44,6 +44,9 @@ test("IP-wide limit is independent of account and enforced across concurrent req
   const scope = `ip-concurrency:${randomUUID()}`;
   const request = proxyRequest("203.0.113.21");
   const ipKey = requestIpRateLimitKey(request, scope);
+  const accountKeys = Array.from({ length: 12 }, (_, index) =>
+    requestAccountRateLimitKey(scope, `user-${index}@example.invalid`)
+  );
 
   try {
     const decisions = await Promise.all(
@@ -55,7 +58,7 @@ test("IP-wide limit is independent of account and enforced across concurrent req
     assert.equal(decisions.filter(result => result.allowed).length, 4);
     assert.equal(decisions.filter(result => !result.allowed).length, 8);
   } finally {
-    if (ipKey) await prisma.rateLimitBucket.deleteMany({ where: { key: ipKey } });
+    await prisma.rateLimitBucket.deleteMany({ where: { key: { in: [ipKey, ...accountKeys].filter(Boolean) } } });
     if (previousProxy === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
     else process.env.TRUSTED_PROXY_HEADER_SECRET = previousProxy;
     if (previousAuth === undefined) delete process.env.AUTH_SECRET;
