@@ -88,14 +88,26 @@ export async function ingestJobWithLease(input: unknown, lease: LeaseFence, opti
   const job = parsed.data;
 
   const outcome = await prisma.$transaction(async tx => {
+    // Lock the task row first. Do not put the expiry predicate in this
+    // locking query: PostgreSQL NOW() is fixed at transaction start, and a
+    // worker may wait here until after its lease has expired.
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id"
+      FROM "JobSyncTask"
+      WHERE "id" = ${lease.taskId}
+      FOR UPDATE
+    `;
+    if (locked.length !== 1) throw new Error("JobSyncLeaseLost");
+
+    // This separate statement runs after the row lock is held. Use the
+    // wall-clock timestamp, not the transaction-start timestamp.
     const owned = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
       FROM "JobSyncTask"
       WHERE "id" = ${lease.taskId}
         AND "status" = 'PROCESSING'
         AND "lockToken" = ${lease.lockToken}
-        AND "lockExpiresAt" > NOW()
-      FOR UPDATE
+        AND "lockExpiresAt" > clock_timestamp()
     `;
     if (owned.length !== 1) throw new Error("JobSyncLeaseLost");
 
