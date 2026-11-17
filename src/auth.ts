@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
 import { consumeIndependentRateLimits } from "@/lib/rate-limit";
 import { hasValidLoginRateLimitPass } from "@/lib/request-identity";
+
+class LoginRateLimitError extends CredentialsSignin { code = "rate_limited"; }
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -32,7 +34,8 @@ const providers = [
       if (!hasValidLoginRateLimitPass(request, email)) {
         try {
           const limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
-          if (!limit.identityVerified || !limit.allowed) return null;
+          if (!limit.identityVerified) return null;
+          if (!limit.allowed) throw new LoginRateLimitError();
         } catch { return null; }
       }
       const user = await prisma.user.findUnique({ where: { email } });
