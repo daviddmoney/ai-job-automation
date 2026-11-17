@@ -48,34 +48,54 @@ export async function registerAccount(input: unknown) {
 }
 
 export async function verifyAccountEmail(input: unknown) {
-  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
-  if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
+  const parsed = z.object({
+    email: z.string().trim().email().max(254),
+    code: z.string().regex(/^\d{6}$/)
+  }).safeParse(input);
 
-  const email = parsed.data.email.trim().toLowerCase();
-  const supplied = codeDigest(parsed.data.code);
-  const verified = await consumeEmailVerificationCode(prisma, email, supplied);
-
-  if (verified) {
-    return { ok: true as const, message: "Email verified. You can now sign in." };
+  if (!parsed.success) {
+    return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
   }
 
-  return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
+  const email = parsed.data.email.toLowerCase();
+  const suppliedDigest = codeDigest(parsed.data.code);
+  const verified = await consumeEmailVerificationCode(prisma, email, suppliedDigest);
+
+  return verified
+    ? { ok: true as const, message: "Email verified. You can now sign in." }
+    : { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
 }
 
 export async function resendAccountVerification(input: unknown) {
   const parsed = z.object({ email: z.string().trim().email().max(254) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email address." };
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+
+  const email = parsed.data.email.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, emailVerified: true } });
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const digest = codeDigest(code);
-  await prisma.$transaction(async (transaction) => {
+
+  const issued = await prisma.$transaction(async (transaction) => {
     const expiresAt = await createEmailVerificationExpiry(transaction);
-    await transaction.user.update({ where: { id: user.id }, data: { emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+    return transaction.user.updateMany({
+      where: { id: user.id, emailVerified: null },
+      data: {
+        emailVerificationCodeHash: digest,
+        emailVerificationExpiresAt: expiresAt,
+        emailVerificationAttempts: 0
+      }
+    });
   });
 
-  try { await sendVerificationCode(user.email, code); }
-  catch { return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." }; }
+  if (issued.count !== 1) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
+
+  try {
+    await sendVerificationCode(user.email, code);
+  } catch {
+    return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." };
+  }
+
   return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
 }
