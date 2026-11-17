@@ -110,12 +110,16 @@ test("a newly issued digest invalidates the previously issued OTP", async () => 
   assert.equal(db.state.attempts, 1);
 });
 
-test("database errors propagate without a partial success response", async () => {
-  const db = { $queryRaw: async () => { throw new Error("database unavailable"); } };
+test("database errors propagate without changing verification state", async () => {
+  const state = { emailVerified: null, hash: digest, attempts: 0 };
+  const db = {
+    $queryRaw: async () => { throw new Error("database unavailable"); }
+  };
   await assert.rejects(
     consumeEmailVerificationCode(db, "otp-regression@example.test", digest),
     /database unavailable/
   );
+  assert.deepEqual(state, { emailVerified: null, hash: digest, attempts: 0 });
 });
 
 test("OTP digests are keyed and reject a missing server secret", () => {
