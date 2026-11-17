@@ -32,11 +32,12 @@ const providers = [
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
       if (!hasValidLoginRateLimitPass(request, email)) {
+        let limit;
         try {
-          const limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
-          if (!limit.identityVerified) return null;
-          if (!limit.allowed) throw new LoginRateLimitError();
+          limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
         } catch { return null; }
+        if (!limit.identityVerified) return null;
+        if (!limit.allowed) throw new LoginRateLimitError();
       }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
