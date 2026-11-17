@@ -199,11 +199,11 @@ test("rate limiting ignores client-spoofed forwarding headers without a valid ed
     headers: { "x-verified-client-ip": "203.0.113.99" }
   });
   try {
-    assert.equal(verifiedClientIp(spoofed), "unknown");
-    assert.equal(verifiedClientIp(noToken), "unknown");
+    assert.equal(verifiedClientIp(spoofed), null);
+    assert.equal(verifiedClientIp(noToken), null);
     assert.equal(verifiedClientIp(new Request("https://example.invalid/api", {
       headers: { "x-verified-client-ip": "not-an-ip", "x-trusted-proxy-token": process.env.TRUSTED_PROXY_HEADER_SECRET }
-    })), "unknown");
+    })), null);
   } finally {
     if (previousSecret === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
     else process.env.TRUSTED_PROXY_HEADER_SECRET = previousSecret;
