@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccountEmail } from "@/lib/registration";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimitPair, requestRateLimitKeys } from "@/lib/rate-limit";
 import { readLimitedJson } from "@/lib/request-body";
 
 export const runtime = "nodejs";
@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
   const email = typeof body.data === "object" && body.data !== null && "email" in body.data && typeof body.data.email === "string" ? body.data.email : "";
   try {
-    const key = requestRateLimitKey(request, "verify-email", email);
-    if (!(await consumeRateLimit(key, 5, 600))) return NextResponse.json({ message: "Too many verification attempts. Request a new code later." }, { status: 429 });
+    const keys = requestRateLimitKeys(request, "verify-email", email);
+    if (!(await consumeRateLimitPair(keys, 30, 5, 600))) return NextResponse.json({ message: "Too many verification attempts. Request a new code later." }, { status: 429 });
   } catch { return NextResponse.json({ message: "Verification is temporarily unavailable." }, { status: 503 }); }
   try {
     const result = await verifyAccountEmail(body.data);
