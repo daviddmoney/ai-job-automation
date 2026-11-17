@@ -134,7 +134,7 @@ test("a worker waiting for the task-row lock cannot write after its lease expire
 
     // Keep the row lock until the lease has definitely expired.
     const remainingMs = Math.max(0, expiresAt.getTime() - Date.now() + 150);
-    await prisma.$queryRaw`SELECT pg_sleep(${remainingMs / 1000})`;
+    await prisma.$queryRaw`SELECT pg_sleep(${remainingMs / 1000}) IS NULL AS "slept"`;
     releaseLock();
     await lockTransaction;
 
