@@ -41,14 +41,22 @@ export async function consumeIndependentRateLimits(
 ): Promise<RateLimitDecision & { identityVerified: boolean }> {
   const ipKey = requestIpRateLimitKey(request, scope);
   if (!ipKey) return { allowed: false, retryAfterSeconds: 0, identityVerified: false };
-  const accountKey = requestAccountRateLimitKey(scope, identifier);
+  // Malformed or missing identifiers must still consume the IP bucket. Do not
+  // let an empty account identifier bypass IP-wide protection or create a
+  // shared account bucket that could throttle unrelated valid accounts.
+  const accountKey = identifier.trim() ? requestAccountRateLimitKey(scope, identifier) : null;
   const [ip, account] = await Promise.all([
     consumeRateLimitWithInfo(ipKey, ipLimit, windowSeconds),
-    consumeRateLimitWithInfo(accountKey, accountLimit, windowSeconds)
+    accountKey
+      ? consumeRateLimitWithInfo(accountKey, accountLimit, windowSeconds)
+      : Promise.resolve(null)
   ]);
   return {
-    allowed: ip.allowed && account.allowed,
-    retryAfterSeconds: Math.max(ip.allowed ? 0 : ip.retryAfterSeconds, account.allowed ? 0 : account.retryAfterSeconds),
+    allowed: ip.allowed && (account?.allowed ?? true),
+    retryAfterSeconds: Math.max(
+      ip.allowed ? 0 : ip.retryAfterSeconds,
+      account && !account.allowed ? account.retryAfterSeconds : 0
+    ),
     identityVerified: true
   };
 }
