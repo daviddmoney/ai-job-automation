@@ -6,7 +6,7 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimitPair, requestRateLimitKeys } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -29,8 +29,8 @@ const providers = [
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
       try {
-        const key = requestRateLimitKey(request, "login", email);
-        if (!(await consumeRateLimit(key, 10, 900))) return null;
+        const keys = requestRateLimitKeys(request, "login", email);
+        if (!(await consumeRateLimitPair(keys, 30, 10, 900))) return null;
       } catch { return null; }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
