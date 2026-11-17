@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 
 /**
- * Only trust client IP metadata when a trusted edge overwrites both headers
+ * Only trust client IP metadata when the trusted edge overwrites both headers
  * and injects the matching secret. Arbitrary forwarding headers are ignored.
  */
 export function verifiedClientIp(request: Request) {
@@ -16,9 +16,23 @@ export function verifiedClientIp(request: Request) {
   return candidate.toLowerCase();
 }
 
-export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
+/**
+ * Produce independent keyed buckets for network identity and account identity.
+ * In production, missing trusted proxy identity is a configuration failure:
+ * do not collapse every visitor into a shared "unknown" IP bucket.
+ */
+export function requestRateLimitKeys(request: Request, scope: string, identifier = "") {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   const ip = verifiedClientIp(request);
-  return createHmac("sha256", secret).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
+  if (ip === "unknown") throw new Error("TRUSTED_PROXY_IDENTITY_NOT_CONFIGURED");
+
+  const key = (kind: string, value: string) =>
+    createHmac("sha256", secret).update(`${scope}:${kind}:${value}`).digest("hex");
+
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  return {
+    ipKey: key("ip", ip),
+    identifierKey: normalizedIdentifier ? key("identifier", normalizedIdentifier) : null
+  };
 }
