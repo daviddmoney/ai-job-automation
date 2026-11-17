@@ -23,9 +23,11 @@ type VerificationUserStore = {
 export async function consumeEmailVerificationCode(
   user: VerificationUserStore,
   email: string,
-  suppliedDigest: string,
-  now = new Date()
+  suppliedDigest: string
 ) {
+  // This timestamp is generated inside the trusted server process. Never accept
+  // an expiry timestamp from a browser, phone, or API request.
+  const now = new Date();
   const verified = await user.updateMany({
     where: {
       email,
