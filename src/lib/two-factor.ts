@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 
 function encryptionKey() {
   const raw = process.env.TOTP_ENCRYPTION_KEY;
@@ -76,7 +76,7 @@ export function otpDigest(code: string) {
 }
 
 export function newEmailOtp() {
-  return String(randomBytes(4).readUInt32BE(0) % 1_000_000).padStart(6, "0");
+  return String(randomInt(1_000_000)).padStart(6, "0");
 }
 
 export function totpUri(secret: string, email: string) {
@@ -84,3 +84,4 @@ export function totpUri(secret: string, email: string) {
   const issuer = encodeURIComponent("AI Job Automation");
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
+
