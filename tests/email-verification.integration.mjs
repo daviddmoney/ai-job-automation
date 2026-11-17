@@ -11,7 +11,7 @@ const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.AUTH_SECRET;
 test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attempt limits", {
   skip: !databaseUrl || !authSecret ? "DATABASE_URL and AUTH_SECRET are required for PostgreSQL integration tests" : false
-}, async (t) => {
+}, async () => {
   const prisma = new PrismaClient();
   const suffix = randomUUID();
   const email = `otp-${suffix}@example.test`;
