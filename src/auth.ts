@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -6,7 +6,10 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeIndependentRateLimits } from "@/lib/rate-limit";
+import { hasValidLoginRateLimitPass } from "@/lib/request-identity";
+
+class LoginRateLimitError extends CredentialsSignin { code = "rate_limited"; }
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -28,10 +31,14 @@ const providers = [
       const parsed = credentialsSchema.safeParse(rawCredentials);
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
-      try {
-        const key = requestRateLimitKey(request, "login", email);
-        if (!(await consumeRateLimit(key, 10, 900))) return null;
-      } catch { return null; }
+      if (!hasValidLoginRateLimitPass(request, email)) {
+        let limit;
+        try {
+          limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
+        } catch { return null; }
+        if (!limit.identityVerified) return null;
+        if (!limit.allowed) throw new LoginRateLimitError();
+      }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
       try { if (!(await verify(user.passwordHash, parsed.data.password))) return null; } catch { return null; }
