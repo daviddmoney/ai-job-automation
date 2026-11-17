@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash } from "node:crypto";
 
 /**
  * OTPs have only one million possible values, so their digest must be keyed.
@@ -9,7 +9,7 @@ export function emailVerificationCodeDigest(code: string): string {
   if (!secret || secret.length < 32) {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
-  return createHmac("sha256", secret).update(code).digest("hex");
+  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
 }
 
 type RawQueryClient = {
@@ -36,7 +36,7 @@ export async function consumeEmailVerificationCode(
     SET
       "emailVerified" = CASE
         WHEN "emailVerificationCodeHash" = ${suppliedDigest}
-          THEN CURRENT_TIMESTAMP
+          THEN clock_timestamp()
         ELSE "emailVerified"
       END,
       "emailVerificationCodeHash" = CASE
@@ -54,12 +54,12 @@ export async function consumeEmailVerificationCode(
           THEN 0
         ELSE "emailVerificationAttempts" + 1
       END,
-      "updatedAt" = CURRENT_TIMESTAMP
+      "updatedAt" = clock_timestamp()
     WHERE
       "email" = ${email}
       AND "emailVerified" IS NULL
       AND "emailVerificationCodeHash" IS NOT NULL
-      AND "emailVerificationExpiresAt" > CURRENT_TIMESTAMP
+      AND "emailVerificationExpiresAt" > clock_timestamp()
       AND "emailVerificationAttempts" < 5
     RETURNING ("emailVerified" IS NOT NULL) AS verified
   `;
