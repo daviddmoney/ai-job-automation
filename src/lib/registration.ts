@@ -44,23 +44,50 @@ export async function registerAccount(input: unknown) {
 }
 
 export async function verifyAccountEmail(input: unknown) {
-  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
+  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\\d{6}$/) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
+
   const email = parsed.data.email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.emailVerified || !user.emailVerificationCodeHash || !user.emailVerificationExpiresAt) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
-  if (user.emailVerificationAttempts >= 5 || user.emailVerificationExpiresAt < new Date()) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
   const supplied = codeDigest(parsed.data.code);
-  if (supplied !== user.emailVerificationCodeHash) {
-    await prisma.user.update({ where: { id: user.id }, data: { emailVerificationAttempts: { increment: 1 } } });
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
+  const now = new Date();
+
+  // A single conditional UPDATE is the verification claim. PostgreSQL rechecks
+  // the predicates after acquiring the row lock, so only one concurrent request
+  // can consume a code and all subsequent replays affect zero rows.
+  const verified = await prisma.user.updateMany({
+    where: {
+      email,
+      emailVerified: null,
+      emailVerificationCodeHash: supplied,
+      emailVerificationExpiresAt: { gt: now },
+      emailVerificationAttempts: { lt: 5 }
+    },
+    data: {
+      emailVerified: now,
+      emailVerificationCodeHash: null,
+      emailVerificationExpiresAt: null,
+      emailVerificationAttempts: 0
+    }
+  });
+
+  if (verified.count === 1) {
+    return { ok: true as const, message: "Email verified. You can now sign in." };
   }
-  await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date(), emailVerificationCodeHash: null, emailVerificationExpiresAt: null, emailVerificationAttempts: 0 } });
-  return { ok: true as const, message: "Email verified. You can now sign in." };
+
+  // Count only a wrong code against a still-pending, unexpired challenge.
+  // The conditional increment is atomic and cannot revive or alter a consumed code.
+  await prisma.user.updateMany({
+    where: {
+      email,
+      emailVerified: null,
+      emailVerificationCodeHash: { not: supplied },
+      emailVerificationExpiresAt: { gt: now },
+      emailVerificationAttempts: { lt: 5 }
+    },
+    data: { emailVerificationAttempts: { increment: 1 } }
+  });
+
+  return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
 }
 
 export async function resendAccountVerification(input: unknown) {
