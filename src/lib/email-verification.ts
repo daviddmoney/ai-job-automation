@@ -23,9 +23,10 @@ type VerificationUserStore = {
 export async function consumeEmailVerificationCode(
   user: VerificationUserStore,
   email: string,
-  suppliedDigest: string,
-  now = new Date()
+  suppliedDigest: string
 ) {
+  // Use trusted server-side time; callers cannot supply or override the clock.
+  const now = new Date();
   const verified = await user.updateMany({
     where: {
       email,
