@@ -15,9 +15,9 @@ function mockDatabase(initial, clock = () => new Date()) {
       assert.match(sql, /clock_timestamp()/);
       assert.match(sql, /"emailVerificationAttempts" < 5/);
       const digest = values[0];
-      const email = values[3];
+      assert.ok(values.includes(state.email), "email must be bound as a SQL parameter");
       const run = async () => {
-        if (state.email !== email || state.emailVerified || !state.hash ||
+        if (state.emailVerified || !state.hash ||
             !(state.expiresAt > clock()) || state.attempts >= 5) return [];
         if (state.hash === digest) {
           state.emailVerified = clock();
