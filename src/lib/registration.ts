@@ -1,8 +1,9 @@
-import { createHash, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
+import { consumeEmailVerificationCode, emailVerificationCodeDigest } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -12,12 +13,6 @@ const registrationSchema = z.object({
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[0-9]/, "Password must contain a number")
 });
-
-function codeDigest(code: string) {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
-}
 
 export async function registerAccount(input: unknown) {
   const parsed = registrationSchema.safeParse(input);
@@ -32,8 +27,8 @@ export async function registerAccount(input: unknown) {
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   const user = existing
-    ? await prisma.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
-    : await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+    ? await prisma.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: emailVerificationCodeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
+    : await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: emailVerificationCodeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
 
   try {
     await sendVerificationCode(user.email, code);
@@ -44,33 +39,40 @@ export async function registerAccount(input: unknown) {
 }
 
 export async function verifyAccountEmail(input: unknown) {
-  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
-  if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
-  const email = parsed.data.email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.emailVerified || !user.emailVerificationCodeHash || !user.emailVerificationExpiresAt) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
+  const parsed = z.object({
+    email: z.string().trim().email().max(254),
+    code: z.string().regex(/^\d{6}$/)
+  }).safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
   }
-  if (user.emailVerificationAttempts >= 5 || user.emailVerificationExpiresAt < new Date()) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
-  const supplied = codeDigest(parsed.data.code);
-  if (supplied !== user.emailVerificationCodeHash) {
-    await prisma.user.update({ where: { id: user.id }, data: { emailVerificationAttempts: { increment: 1 } } });
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
-  await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date(), emailVerificationCodeHash: null, emailVerificationExpiresAt: null, emailVerificationAttempts: 0 } });
-  return { ok: true as const, message: "Email verified. You can now sign in." };
+
+  const email = parsed.data.email.toLowerCase();
+  const suppliedDigest = emailVerificationCodeDigest(parsed.data.code);
+  const verified = await consumeEmailVerificationCode(prisma, email, suppliedDigest);
+
+  return verified
+    ? { ok: true as const, message: "Email verified. You can now sign in." }
+    : { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
 }
 
 export async function resendAccountVerification(input: unknown) {
   const parsed = z.object({ email: z.string().trim().email().max(254) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email address." };
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+  const email = parsed.data.email.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  await prisma.user.update({ where: { id: user.id }, data: { emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000), emailVerificationAttempts: 0 } });
-  try { await sendVerificationCode(user.email, code); }
+  const issued = await prisma.user.updateMany({
+    where: { id: user.id, emailVerified: null },
+    data: {
+      emailVerificationCodeHash: emailVerificationCodeDigest(code),
+      emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      emailVerificationAttempts: 0
+    }
+  });
+  if (issued.count !== 1) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
+  try { await sendVerificationCode(email, code); }
   catch { return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." }; }
   return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
 }
