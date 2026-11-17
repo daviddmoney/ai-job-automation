@@ -3,6 +3,7 @@ import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
+import { consumeEmailVerificationCode } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -49,43 +50,11 @@ export async function verifyAccountEmail(input: unknown) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const supplied = codeDigest(parsed.data.code);
-  const now = new Date();
+  const verified = await consumeEmailVerificationCode(prisma.user, email, supplied);
 
-  // A single conditional UPDATE is the verification claim. PostgreSQL rechecks
-  // the predicates after acquiring the row lock, so only one concurrent request
-  // can consume a code and all subsequent replays affect zero rows.
-  const verified = await prisma.user.updateMany({
-    where: {
-      email,
-      emailVerified: null,
-      emailVerificationCodeHash: supplied,
-      emailVerificationExpiresAt: { gt: now },
-      emailVerificationAttempts: { lt: 5 }
-    },
-    data: {
-      emailVerified: now,
-      emailVerificationCodeHash: null,
-      emailVerificationExpiresAt: null,
-      emailVerificationAttempts: 0
-    }
-  });
-
-  if (verified.count === 1) {
+  if (verified) {
     return { ok: true as const, message: "Email verified. You can now sign in." };
   }
-
-  // Count only a wrong code against a still-pending, unexpired challenge.
-  // The conditional increment is atomic and cannot revive or alter a consumed code.
-  await prisma.user.updateMany({
-    where: {
-      email,
-      emailVerified: null,
-      emailVerificationCodeHash: { not: supplied },
-      emailVerificationExpiresAt: { gt: now },
-      emailVerificationAttempts: { lt: 5 }
-    },
-    data: { emailVerificationAttempts: { increment: 1 } }
-  });
 
   return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
 }
