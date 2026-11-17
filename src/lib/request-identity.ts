@@ -36,3 +36,14 @@ export function requestRateLimitKeys(request: Request, scope: string, identifier
     identifierKey: normalizedIdentifier ? key("identifier", normalizedIdentifier) : null
   };
 }
+
+/** @deprecated Prefer requestRateLimitKeys + consumeRateLimitPair for separate limits. */
+export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  const ip = verifiedClientIp(request);
+  if (ip === "unknown") throw new Error("TRUSTED_PROXY_IDENTITY_NOT_CONFIGURED");
+  return createHmac("sha256", secret)
+    .update(`${scope}:${ip}:${identifier.trim().toLowerCase()}`)
+    .digest("hex");
+}
