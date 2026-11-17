@@ -1,7 +1,7 @@
 import { prisma } from "./prisma.ts";
-import { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "@/lib/request-identity";
+import { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "./request-identity.ts";
 
-export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, verifiedClientIp } from "@/lib/request-identity";
+export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, verifiedClientIp } from "./request-identity.ts";
 
 export type RateLimitDecision = { allowed: boolean; retryAfterSeconds: number };
 
