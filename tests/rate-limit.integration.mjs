@@ -128,3 +128,30 @@ test("unverified proxy identity fails closed without consuming an unknown-IP buc
     else process.env.AUTH_SECRET = previousAuth;
   }
 });
+
+test("missing account identifiers still consume the verified IP bucket", async () => {
+  const previousProxy = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  const previousAuth = process.env.AUTH_SECRET;
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "integration-proxy-secret-long-enough-for-tests";
+  process.env.AUTH_SECRET = "integration-auth-secret-long-enough-for-rate-limit-tests";
+  const scope = `invalid-identifier:${randomUUID()}`;
+  const request = proxyRequest("203.0.113.41");
+  const ipKey = requestIpRateLimitKey(request, scope);
+
+  try {
+    const decisions = await Promise.all(
+      Array.from({ length: 6 }, () =>
+        consumeIndependentRateLimits(request, scope, "", 2, 1, 60)
+      )
+    );
+    assert.ok(decisions.every(result => result.identityVerified));
+    assert.equal(decisions.filter(result => result.allowed).length, 2);
+    assert.equal(decisions.filter(result => !result.allowed).length, 4);
+  } finally {
+    if (ipKey) await prisma.rateLimitBucket.deleteMany({ where: { key: ipKey } });
+    if (previousProxy === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousProxy;
+    if (previousAuth === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousAuth;
+  }
+});
