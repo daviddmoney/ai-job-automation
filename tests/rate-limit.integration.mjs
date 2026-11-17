@@ -31,6 +31,14 @@ test("rate-limit counter enforces its threshold under concurrent requests", asyn
     assert.equal(decisions.filter(result => result.allowed).length, 7);
     assert.equal(decisions.filter(result => !result.allowed).length, 17);
     assert.ok(decisions.every(result => result.retryAfterSeconds >= 1));
+
+    // An expired bucket must reset against PostgreSQL's current wall clock.
+    await prisma.rateLimitBucket.update({
+      where: { key },
+      data: { resetAt: new Date(Date.now() - 1_000) }
+    });
+    const afterExpiry = await consumeRateLimitWithInfo(key, 7, 60);
+    assert.equal(afterExpiry.allowed, true);
   } finally {
     await prisma.rateLimitBucket.deleteMany({ where: { key } });
   }
