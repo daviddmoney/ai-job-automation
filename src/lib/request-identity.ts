@@ -50,7 +50,7 @@ export function hasValidLoginRateLimitPass(request: Request, identifier: string)
   const secret = process.env.AUTH_SECRET;
   if (!token || !secret || secret.length < 32) return false;
   const [issuedAt, signature, extra] = token.split(".");
-  if (!issuedAt || !signature || extra || !/^\\d+$/.test(issuedAt)) return false;
+  if (!issuedAt || !signature || extra || !/^\d+$/.test(issuedAt)) return false;
   const timestamp = Number(issuedAt);
   if (!Number.isSafeInteger(timestamp) || Date.now() - timestamp < 0 || Date.now() - timestamp > 30_000) return false;
   const expected = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${identifier.trim().toLowerCase()}`).digest("hex");
