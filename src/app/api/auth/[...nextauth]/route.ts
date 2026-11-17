@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // request twice. A caller cannot forge it without AUTH_SECRET.
     const headers = new Headers(request.headers);
     headers.set("x-internal-login-rate-limit-pass", createLoginRateLimitPass(email));
-    return handlers.POST(new Request(request, { headers }));
+    return handlers.POST(new NextRequest(request, { headers }));
   } catch {
     return NextResponse.json({ message: "Sign-in is temporarily unavailable." }, { status: 503 });
   }
