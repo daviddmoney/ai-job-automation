@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerAccount } from "@/lib/registration";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimitPair, requestRateLimitKeys } from "@/lib/rate-limit";
 import { readLimitedJson } from "@/lib/request-body";
 
 export const runtime = "nodejs";
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
   const email = typeof parsedBody.data === "object" && parsedBody.data !== null && "email" in parsedBody.data && typeof parsedBody.data.email === "string"
     ? parsedBody.data.email.trim().toLowerCase().slice(0, 254) : "";
   try {
-    const key = requestRateLimitKey(request, "register", email);
-    if (!(await consumeRateLimit(key, 8, 60))) return NextResponse.json({ message: "Too many attempts. Please wait before trying again." }, { status: 429 });
+    const keys = requestRateLimitKeys(request, "register", email);
+    if (!(await consumeRateLimitPair(keys, 20, 8, 60))) return NextResponse.json({ message: "Too many attempts. Please wait before trying again." }, { status: 429 });
   } catch { return NextResponse.json({ message: "Registration is temporarily unavailable." }, { status: 503 }); }
   try {
     const result = await registerAccount(parsedBody.data);
