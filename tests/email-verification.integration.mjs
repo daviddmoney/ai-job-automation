@@ -58,7 +58,6 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
     assert.equal(limited.emailVerificationAttempts, 5);
     assert.equal(await consumeEmailVerificationCode(prisma, attemptsEmail, validDigest), false);
   } finally {
-    await prisma.user.deleteMany({ where: { email: { endsWith: `@${"example.test"}` }, id: { contains: suffix.slice(0, 0) } } }).catch(() => {});
     await prisma.user.deleteMany({ where: { email: { in: [email, `expired-${suffix}@example.test`, `attempts-${suffix}@example.test`] } } });
     await prisma.$disconnect();
     if (secretWas === undefined) delete process.env.AUTH_SECRET;
