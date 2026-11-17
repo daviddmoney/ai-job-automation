@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { newEmailOtp, otpDigest } from "@/lib/two-factor";
 import { sendSecondFactorCode } from "@/lib/email";
 import { readLimitedJson } from "@/lib/request-body";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimitPair, requestRateLimitKeys } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
   const parsed = z.object({ email: z.string().email().max(254), password: z.string().min(1).max(256) }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "Enter your email and password first." }, { status: 400 });
   try {
-    const key = requestRateLimitKey(request, "send-2fa", parsed.data.email);
-    if (!(await consumeRateLimit(key, 3, 600))) return NextResponse.json({ message: "Too many code requests. Please wait before trying again." }, { status: 429 });
+    const keys = requestRateLimitKeys(request, "send-2fa", parsed.data.email);
+    if (!(await consumeRateLimitPair(keys, 20, 3, 600))) return NextResponse.json({ message: "Too many code requests. Please wait before trying again." }, { status: 429 });
   } catch { return NextResponse.json({ message: "Sign-in code delivery is temporarily unavailable." }, { status: 503 }); }
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.trim().toLowerCase() } });
   if (!user?.passwordHash || !user.emailVerified || !user.twoFactorEnabled || user.twoFactorMethod !== "EMAIL") return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 });
