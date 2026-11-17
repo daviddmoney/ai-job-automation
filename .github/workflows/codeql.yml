@@ -2,7 +2,7 @@ name: CodeQL
 
 on:
   push:
-    branches: [main]
+    branches: [main, integration/global-multilingual-security-2026-11-15]
   pull_request:
     branches: [main]
   schedule:
