@@ -35,6 +35,30 @@ export function requestAccountRateLimitKey(scope: string, identifier: string) {
   return hmacKey(`${scope}:account:${normalized}`);
 }
 
+/** Short-lived proof that the callback route already consumed both login buckets. */
+export function createLoginRateLimitPass(identifier: string) {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  const issuedAt = Date.now().toString();
+  const normalized = identifier.trim().toLowerCase();
+  const signature = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${normalized}`).digest("hex");
+  return `${issuedAt}.${signature}`;
+}
+
+export function hasValidLoginRateLimitPass(request: Request, identifier: string) {
+  const token = request.headers.get("x-internal-login-rate-limit-pass");
+  const secret = process.env.AUTH_SECRET;
+  if (!token || !secret || secret.length < 32) return false;
+  const [issuedAt, signature, extra] = token.split(".");
+  if (!issuedAt || !signature || extra || !/^\\d+$/.test(issuedAt)) return false;
+  const timestamp = Number(issuedAt);
+  if (!Number.isSafeInteger(timestamp) || Date.now() - timestamp < 0 || Date.now() - timestamp > 30_000) return false;
+  const expected = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${identifier.trim().toLowerCase()}`).digest("hex");
+  const actualBytes = Buffer.from(signature, "hex");
+  const expectedBytes = Buffer.from(expected, "hex");
+  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+}
+
 /** Backwards-compatible combined key for existing verification/resend routes. */
 export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
   const ip = verifiedClientIp(request) ?? "unverified";
