@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { consumeEmailVerificationCode } from "../src/lib/email-verification.ts";
 
 const prisma = new PrismaClient();
 
@@ -20,29 +21,15 @@ test("email verification code can be consumed only once under concurrent request
     }
   });
 
-  const consumeCode = async () => prisma.user.updateMany({
-    where: {
-      email,
-      emailVerified: null,
-      emailVerificationCodeHash: codeHash,
-      emailVerificationExpiresAt: { gt: new Date() },
-      emailVerificationAttempts: { lt: 5 }
-    },
-    data: {
-      emailVerified: new Date(),
-      emailVerificationCodeHash: null,
-      emailVerificationExpiresAt: null,
-      emailVerificationAttempts: 0
-    }
-  });
+  const consumeCode = () => consumeEmailVerificationCode(prisma.user, email, codeHash);
 
   try {
     const results = await Promise.all([consumeCode(), consumeCode()]);
-    assert.equal(results.reduce((total, result) => total + result.count, 0), 1);
+    assert.equal(results.filter(Boolean).length, 1);
 
     // A replay after successful consumption must not update the account.
     const replay = await consumeCode();
-    assert.equal(replay.count, 0);
+    assert.equal(replay, false);
 
     const verified = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.ok(verified.emailVerified);
