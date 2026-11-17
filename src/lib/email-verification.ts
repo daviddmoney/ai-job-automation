@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 /**
  * OTPs have only one million possible values, so their digest must be keyed.
@@ -9,7 +9,7 @@ export function emailVerificationCodeDigest(code: string): string {
   if (!secret || secret.length < 32) {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
-  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
+  return createHmac("sha256", secret).update(code).digest("hex");
 }
 
 type RawQueryClient = {
