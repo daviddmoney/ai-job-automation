@@ -36,25 +36,21 @@ export async function consumeEmailVerificationCode(
     SET
       "emailVerified" = CASE
         WHEN "emailVerificationCodeHash" = ${suppliedDigest}
-          AND "emailVerificationExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
           THEN (clock_timestamp() AT TIME ZONE 'UTC')
         ELSE "emailVerified"
       END,
       "emailVerificationCodeHash" = CASE
         WHEN "emailVerificationCodeHash" = ${suppliedDigest}
-          AND "emailVerificationExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
           THEN NULL
         ELSE "emailVerificationCodeHash"
       END,
       "emailVerificationExpiresAt" = CASE
         WHEN "emailVerificationCodeHash" = ${suppliedDigest}
-          AND "emailVerificationExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
           THEN NULL
         ELSE "emailVerificationExpiresAt"
       END,
       "emailVerificationAttempts" = CASE
         WHEN "emailVerificationCodeHash" = ${suppliedDigest}
-          AND "emailVerificationExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
           THEN 0
         ELSE "emailVerificationAttempts" + 1
       END,
