@@ -3,6 +3,7 @@ import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
+import { consumeEmailVerificationCode } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -46,21 +47,16 @@ export async function registerAccount(input: unknown) {
 export async function verifyAccountEmail(input: unknown) {
   const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
+
   const email = parsed.data.email.trim().toLowerCase();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || user.emailVerified || !user.emailVerificationCodeHash || !user.emailVerificationExpiresAt) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
-  if (user.emailVerificationAttempts >= 5 || user.emailVerificationExpiresAt < new Date()) {
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
-  }
   const supplied = codeDigest(parsed.data.code);
-  if (supplied !== user.emailVerificationCodeHash) {
-    await prisma.user.update({ where: { id: user.id }, data: { emailVerificationAttempts: { increment: 1 } } });
-    return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
+  const verified = await consumeEmailVerificationCode(prisma.user, email, supplied);
+
+  if (verified) {
+    return { ok: true as const, message: "Email verified. You can now sign in." };
   }
-  await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date(), emailVerificationCodeHash: null, emailVerificationExpiresAt: null, emailVerificationAttempts: 0 } });
-  return { ok: true as const, message: "Email verified. You can now sign in." };
+
+  return { ok: false as const, status: 400, message: "The code is invalid or expired. Request a new code." };
 }
 
 export async function resendAccountVerification(input: unknown) {
