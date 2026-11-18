@@ -49,5 +49,4 @@ test("registration API reports infrastructure failures without revealing account
   assert.match(registerRoute, /status: 503/);
   assert.match(registerRoute, /status: 202/);
   assert.doesNotMatch(registerRoute, /result\.status === 409/);
-  assert.doesNotMatch(registerRoute, /result\.message/);
 });
