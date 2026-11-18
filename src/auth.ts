@@ -6,7 +6,7 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
-import { consumeRateLimit, identityRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimit, identityRateLimitKey, verifiedIpRateLimitKey } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -31,10 +31,13 @@ const providers = [
       try {
         // These are deliberately independent buckets: changing IP must not reset
         // the account limit, and rotating email addresses must not reset the IP limit.
-        const ipKey = requestRateLimitKey(request, "login:ip");
+        const ipKey = verifiedIpRateLimitKey(request, "login:ip");
         const emailKey = identityRateLimitKey("login:email", email);
+        // Do not put unauthenticated traffic into one shared "unknown" IP bucket.
+        // The account bucket is always consumed; the IP bucket applies only when
+        // trusted ingress has authenticated the client's address.
         const [ipAllowed, emailAllowed] = await Promise.all([
-          consumeRateLimit(ipKey, 20, 900),
+          ipKey ? consumeRateLimit(ipKey, 20, 900) : Promise.resolve(true),
           consumeRateLimit(emailKey, 10, 900)
         ]);
         if (!ipAllowed || !emailAllowed) return null;
