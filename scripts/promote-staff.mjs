@@ -4,6 +4,7 @@ const email = process.env.STAFF_EMAIL?.trim().toLowerCase();
 const actorEmail = process.env.STAFF_PROMOTED_BY?.trim().toLowerCase();
 const reason = process.env.STAFF_PROMOTION_REASON?.trim();
 const confirmed = process.env.CONFIRM_STAFF_PROMOTION === "YES";
+const allowFirstBootstrap = process.env.ALLOW_FIRST_STAFF_BOOTSTRAP === "YES";
 
 if (!email || !actorEmail || !reason || !confirmed) {
   console.error("Set STAFF_EMAIL, STAFF_PROMOTED_BY, STAFF_PROMOTION_REASON and CONFIRM_STAFF_PROMOTION=YES.");
@@ -13,6 +14,18 @@ if (!email || !actorEmail || !reason || !confirmed) {
 const prisma = new PrismaClient();
 try {
   const promoted = await prisma.$transaction(async (tx) => {
+    const staffCount = await tx.user.count({ where: { role: "STAFF" } });
+    const actor = await tx.user.findUnique({
+      where: { email: actorEmail },
+      select: { id: true, email: true, emailVerified: true, role: true }
+    });
+    if (staffCount > 0 && (!actor?.emailVerified || actor.role !== "STAFF")) {
+      throw new Error("STAFF_ACTOR_MUST_BE_VERIFIED_STAFF");
+    }
+    if (staffCount === 0 && !allowFirstBootstrap) {
+      throw new Error("FIRST_STAFF_BOOTSTRAP_REQUIRES_EXPLICIT_FLAG");
+    }
+
     const target = await tx.user.findUnique({
       where: { email },
       select: { id: true, emailVerified: true, role: true }
@@ -27,8 +40,8 @@ try {
 
     await tx.auditEvent.create({
       data: {
-        userId: target.id,
-        actorEmail,
+        userId: actor?.id ?? null,
+        actorEmail: actor?.email ?? actorEmail,
         action: "STAFF_ROLE_GRANTED",
         resource: "User",
         resourceId: target.id,
@@ -42,7 +55,7 @@ try {
     console.error("No verified USER account matched, or the account was already promoted.");
     process.exitCode = 1;
   } else {
-    console.log("Verified account promoted to STAFF; the action was recorded in AuditEvent.");
+    console.log("Verified account promoted to STAFF; actor and reason were recorded in AuditEvent.");
   }
 } finally {
   await prisma.$disconnect();
