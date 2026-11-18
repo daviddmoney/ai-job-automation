@@ -39,3 +39,15 @@ test("email verification UI distinguishes API failures and exposes accessible fe
   assert.match(verifyPage, /response\.status === 429/);
   assert.doesNotMatch(verifyPage, /form\.reset\(/);
 });
+
+
+const registerRoute = await readFile(new URL("../src/app/api/register/route.ts", import.meta.url), "utf8");
+
+test("registration API reports infrastructure failures without revealing account existence", () => {
+  assert.match(registerRoute, /result\.status === 400/);
+  assert.match(registerRoute, /result\.status === 503/);
+  assert.match(registerRoute, /status: 503/);
+  assert.match(registerRoute, /status: 202/);
+  assert.doesNotMatch(registerRoute, /result\.status === 409/);
+  assert.doesNotMatch(registerRoute, /result\.message/);
+});
