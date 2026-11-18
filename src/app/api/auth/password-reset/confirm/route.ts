@@ -36,12 +36,13 @@ export async function POST(request: Request) {
   const digest = passwordResetTokenDigest(parsed.data.token);
   const passwordHash = await hash(parsed.data.newPassword, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
   const reset = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
+    if (!user?.emailVerified) return false;
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
     const consumed = await tx.verificationToken.deleteMany({
       where: { identifier, token: digest, expires: { gt: new Date() } }
     });
     if (consumed.count !== 1) return false;
-    const user = await tx.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
-    if (!user?.emailVerified) throw new Error("RESET_ACCOUNT_NOT_VERIFIED");
     await tx.user.update({
       where: { id: user.id },
       data: { passwordHash, sessionVersion: { increment: 1 } }

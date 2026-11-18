@@ -15,7 +15,7 @@ This document records the authentication controls implemented on the security PR
 - TOTP secrets are encrypted using AES-256-GCM. TOTP replay counters are stored atomically.
 - TOTP recovery codes are random, stored hashed, shown once, rotated only after password and fresh TOTP proof, and audited.
 - Email fallback recovery for lost TOTP/recovery codes requires the account password and a one-time code sent to the verified email; it disables TOTP and revokes all sessions.
-- 2FA setup and disable operations require password reauthentication; disable additionally requires current TOTP, current email OTP, or a one-time recovery code. 2FA changes are audited and revoke sessions.
+- 2FA setup and disable operations require password reauthentication; disable additionally requires current TOTP, a freshly issued email OTP, or a one-time recovery code. 2FA changes are audited and revoke sessions.
 - Staff provisioning requires explicit confirmation, target account verification, an operator email and reason. The promotion is transactional and recorded in AuditEvent.
 - Persistent rate-limit buckets are atomically updated. Denials are audited once per bucket/window, structured events are logged without raw identifiers, expired buckets are cleaned opportunistically in bounded batches, and a staff-only monitoring endpoint reports bucket and denial counts. A manual cleanup script is available as `npm run rate-limit:cleanup`.
 - Sensitive authentication and 2FA POST routes enforce same-origin checks and bounded request bodies.

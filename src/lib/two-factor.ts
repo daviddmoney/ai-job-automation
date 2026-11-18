@@ -101,6 +101,10 @@ export async function consumeEmailSecondFactorCode(
     SET
       "twoFactorEnabled" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN TRUE ELSE "twoFactorEnabled" END,
       "twoFactorMethod" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 'EMAIL' ELSE "twoFactorMethod" END,
+      "twoFactorSecretCipher" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorSecretCipher" END,
+      "twoFactorPendingSecretCipher" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorPendingSecretCipher" END,
+      "recoveryCodeHashes" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN ARRAY[]::text[] ELSE "recoveryCodeHashes" END,
+      "twoFactorLastTotpCounter" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorLastTotpCounter" END,
       "twoFactorEmailCodeHash" = CASE
         WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
         ELSE "twoFactorEmailCodeHash"

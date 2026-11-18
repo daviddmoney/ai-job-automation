@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const identifier = `password-reset:${email}`;
     const expires = new Date(Date.now() + 15 * 60 * 1000);
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
       await tx.verificationToken.deleteMany({ where: { identifier } });
       await tx.verificationToken.create({ data: { identifier, token: digest, expires } });
     });
