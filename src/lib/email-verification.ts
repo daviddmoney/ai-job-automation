@@ -2,6 +2,17 @@ type VerificationDatabase = {
   $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T>;
 };
 
+/** Generate the ten-minute OTP expiry using PostgreSQL's live clock. */
+export async function createEmailVerificationExpiry(database: VerificationDatabase) {
+  const rows = await database.$queryRaw<Array<{ expiresAt: Date }>>`
+    SELECT clock_timestamp() + INTERVAL '10 minutes' AS "expiresAt"
+  `;
+  if (rows.length !== 1 || !(rows[0].expiresAt instanceof Date)) {
+    throw new Error("EMAIL_VERIFICATION_EXPIRY_UNAVAILABLE");
+  }
+  return rows[0].expiresAt;
+}
+
 /**
  * Atomically consumes a pending email verification code.
  * PostgreSQL's live clock is authoritative for both expiry and verification time.
