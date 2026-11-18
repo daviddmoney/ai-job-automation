@@ -10,9 +10,9 @@ declare module "next-auth" {
       image?: string | null;
     };
   }
-  interface User { role?: "USER" | "STAFF"; }
+  interface User { role?: "USER" | "STAFF"; sessionVersion?: number; }
 }
 
 declare module "next-auth/jwt" {
-  interface JWT { role?: "USER" | "STAFF"; }
+  interface JWT { role?: "USER" | "STAFF"; sessionVersion?: number; }
 }

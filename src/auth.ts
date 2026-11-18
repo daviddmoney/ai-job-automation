@@ -75,14 +75,16 @@ const providers = [
     }
   }),
   ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
-    ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET })]
+    ? [Google({ clientId: process.env.AUTH_GOOGLE_ID, clientSecret: process.env.AUTH_GOOGLE_SECRET, allowDangerousEmailAccountLinking: false })]
     : [])
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 8 * 60 * 60 },
+  useSecureCookies: process.env.NODE_ENV === "production",
+  trustHost: true,
   pages: { signIn: "/signin" },
   callbacks: {
     async signIn({ user, account, profile }) {
@@ -98,7 +100,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async jwt({ token, user }) {
-      if (user) { token.sub = user.id; token.role = "role" in user ? user.role : "USER"; }
+      // Every session read checks the database-backed version. Missing or stale
+      // versions revoke pre-upgrade tokens and tokens issued before a security
+      // event (password reset, 2FA change, staff-role change).
+      const userId = user?.id ?? token.sub;
+      if (!userId) return token;
+      try {
+        const current = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, role: true, sessionVersion: true }
+        });
+        if (!current || (!user && (typeof token.sessionVersion !== "number" || token.sessionVersion !== current.sessionVersion))) {
+          delete token.sub;
+          delete token.role;
+          delete token.sessionVersion;
+          return token;
+        }
+        token.sub = current.id;
+        token.role = current.role;
+        token.sessionVersion = current.sessionVersion;
+      } catch {
+        // Fail closed when the session revocation state cannot be checked.
+        delete token.sub;
+        delete token.role;
+        delete token.sessionVersion;
+      }
       return token;
     },
     async session({ session, token }) {
