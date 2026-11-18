@@ -3,7 +3,7 @@ import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
-import { consumeEmailVerificationCode } from "@/lib/email-verification";
+import { consumeEmailVerificationCode, createEmailVerificationExpiry } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -29,12 +29,15 @@ export async function registerAccount(input: unknown) {
   if (existing?.emailVerified) return { ok: false as const, status: 409, message: "An account with this email already exists." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const digest = codeDigest(code);
   const passwordHash = await hash(parsed.data.password, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  const user = existing
-    ? await prisma.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
-    : await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+  const user = await prisma.$transaction(async (transaction) => {
+    const expiresAt = await createEmailVerificationExpiry(transaction);
+    return existing
+      ? transaction.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
+      : transaction.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+  });
 
   try {
     await sendVerificationCode(user.email, code);
@@ -45,7 +48,7 @@ export async function registerAccount(input: unknown) {
 }
 
 export async function verifyAccountEmail(input: unknown) {
-  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\d{6}$/) }).safeParse(input);
+  const parsed = z.object({ email: z.string().email().max(254), code: z.string().regex(/^\\d{6}$/) }).safeParse(input);
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
 
   const email = parsed.data.email.trim().toLowerCase();
@@ -64,8 +67,14 @@ export async function resendAccountVerification(input: unknown) {
   if (!parsed.success) return { ok: false as const, status: 400, message: "Enter a valid email address." };
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
+
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  await prisma.user.update({ where: { id: user.id }, data: { emailVerificationCodeHash: codeDigest(code), emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000), emailVerificationAttempts: 0 } });
+  const digest = codeDigest(code);
+  await prisma.$transaction(async (transaction) => {
+    const expiresAt = await createEmailVerificationExpiry(transaction);
+    await transaction.user.update({ where: { id: user.id }, data: { emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+  });
+
   try { await sendVerificationCode(user.email, code); }
   catch { return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." }; }
   return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
