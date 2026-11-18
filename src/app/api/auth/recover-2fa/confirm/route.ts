@@ -4,7 +4,7 @@ import { verify } from "argon2";
 import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
 import { consumeEmailSecondFactorRecoveryCode, emailSecondFactorDigest } from "@/lib/two-factor";
 
 export const runtime = "nodejs";
@@ -12,7 +12,12 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   try {
-    if (!(await consumeRateLimit(requestRateLimitKey(request, "two-factor-recovery-confirm"), 8, 3600))) {
+    const bodyForLimit = await request.clone().json().catch(() => null) as { email?: unknown } | null;
+    const emailForLimit = typeof bodyForLimit?.email === "string" ? bodyForLimit.email.trim().toLowerCase() : "";
+    if (!(await consumeRateLimit(requestRateLimitKey(request, "two-factor-recovery-confirm", emailForLimit), 8, 3600))) {
+      return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
+    }
+    if (emailForLimit && !(await consumeRateLimit(identifierRateLimitKey("two-factor-recovery-confirm", emailForLimit), 10, 3600))) {
       return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
     }
   } catch {

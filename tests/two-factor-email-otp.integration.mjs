@@ -14,7 +14,7 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
   const suffix = randomUUID();
   const email = `email-2fa-${suffix}@example.test`;
   const code = "654321";
-  const digestFor = (value, userId) => emailSecondFactorDigest(value, userId);
+  const digestFor = (value, userId, purpose = "login") => emailSecondFactorDigest(value, userId, purpose);
   try {
     const user = await prisma.user.create({
       data: {
@@ -79,11 +79,11 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
         twoFactorEmailCodeAttempts: 0
       }
     });
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, digestFor("000000", user.id), true), false);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, digestFor("000000", user.id, "activation"), true), false);
     const stillDisabled = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(stillDisabled.twoFactorEnabled, false);
     assert.equal(stillDisabled.twoFactorMethod, null);
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, digestFor("555555", user.id), true), true);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, digestFor("555555", user.id, "activation"), true), true);
     const activated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(activated.twoFactorEnabled, true);
     assert.equal(activated.twoFactorMethod, "EMAIL");
