@@ -3,7 +3,7 @@ import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
-import { consumeEmailVerificationCode, createEmailVerificationExpiry, emailVerificationCodeDigest } from "@/lib/email-verification";
+import { consumeEmailVerificationCode, emailVerificationCodeDigest, issueEmailVerificationCode } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -27,39 +27,34 @@ export async function registerAccount(input: unknown) {
   const digest = emailVerificationCodeDigest(code, email);
   const passwordHash = await hash(parsed.data.password, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
 
-  const issuedUser = await prisma.$transaction(async (transaction) => {
-    const expiresAt = await createEmailVerificationExpiry(transaction);
-
-    if (existing) {
-      const issued = await transaction.user.updateMany({
-        where: { id: existing.id, emailVerified: null },
-        data: {
-          name: parsed.data.name,
-          passwordHash,
-          emailVerificationCodeHash: digest,
-          emailVerificationExpiresAt: expiresAt,
-          emailVerificationAttempts: 0
-        }
-      });
-      return issued.count === 1 ? { id: existing.id } : null;
-    }
-
-    const created = await transaction.user.create({
-      data: {
-        name: parsed.data.name,
-        email,
-        passwordHash,
-        role: "USER",
-        emailVerificationCodeHash: digest,
-        emailVerificationExpiresAt: expiresAt,
-        emailVerificationAttempts: 0
-      },
-      select: { id: true }
+  let issuedUserId: string | null = null;
+  try {
+    issuedUserId = await prisma.$transaction(async (tx) => {
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+      } else {
+        const created = await tx.user.create({
+          data: { name: parsed.data.name, email, passwordHash, role: "USER" },
+          select: { id: true }
+        });
+        userId = created.id;
+      }
+      const issued = await issueEmailVerificationCode(
+        tx,
+        userId,
+        digest,
+        existing ? { name: parsed.data.name, passwordHash } : undefined
+      );
+      return issued ? userId : null;
     });
-    return created;
-  });
-
-  if (!issuedUser) {
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+      return { ok: false as const, status: 409, message: "An account with this email already exists." };
+    }
+    throw error;
+  }
+  if (!issuedUserId) {
     return { ok: false as const, status: 409, message: "An account with this email already exists." };
   }
 
@@ -67,7 +62,7 @@ export async function registerAccount(input: unknown) {
     await sendVerificationCode(email, code);
   } catch {
     await prisma.user.updateMany({
-      where: { id: issuedUser.id, emailVerified: null, emailVerificationCodeHash: digest },
+      where: { id: issuedUserId, emailVerified: null, emailVerificationCodeHash: digest },
       data: { emailVerificationCodeHash: null, emailVerificationExpiresAt: null }
     });
     return { ok: false as const, status: 503, message: "Your account details were saved, but email delivery is not configured or is temporarily unavailable. Please contact the site administrator before trying again." };
@@ -104,21 +99,8 @@ export async function resendAccountVerification(input: unknown) {
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const digest = emailVerificationCodeDigest(code, email);
-
-  const issued = await prisma.$transaction(async (transaction) => {
-    const expiresAt = await createEmailVerificationExpiry(transaction);
-    return transaction.user.updateMany({
-      where: { id: user.id, emailVerified: null },
-      data: {
-        emailVerificationCodeHash: digest,
-        emailVerificationExpiresAt: expiresAt,
-        emailVerificationAttempts: 0
-      }
-    });
-  });
-
-  if (issued.count !== 1) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
-
+  const issued = await issueEmailVerificationCode(prisma, user.id, digest);
+  if (!issued) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
   try {
     await sendVerificationCode(user.email, code);
   } catch {

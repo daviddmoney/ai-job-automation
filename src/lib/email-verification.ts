@@ -91,3 +91,28 @@ export async function consumeEmailVerificationCode(
 
   return false;
 }
+
+/** Issue or replace a verification OTP using PostgreSQL's live clock. */
+export async function issueEmailVerificationCode(
+  db: RawQueryClient,
+  userId: string,
+  digest: string,
+  profile?: { name?: string; passwordHash?: string }
+): Promise<boolean> {
+  const name = profile?.name ?? null;
+  const passwordHash = profile?.passwordHash ?? null;
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    UPDATE "User"
+    SET
+      "name" = COALESCE(${name}, "name"),
+      "passwordHash" = COALESCE(${passwordHash}, "passwordHash"),
+      "emailVerificationCodeHash" = ${digest},
+      "emailVerificationExpiresAt" = (clock_timestamp() AT TIME ZONE 'UTC') + INTERVAL '10 minutes',
+      "emailVerificationAttempts" = 0,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE "id" = ${userId}
+      AND "emailVerified" IS NULL
+    RETURNING "id"
+  `;
+  return rows.length === 1;
+}
