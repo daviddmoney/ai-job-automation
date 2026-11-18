@@ -4,6 +4,7 @@ import { isSessionVersionCurrent } from "../src/lib/session-security.ts";
 import { isVerifiedGoogleEmail } from "../src/lib/oauth-security.ts";
 import { requireAuthenticatedUser, requireStaff } from "../src/lib/authorization.ts";
 import { passwordResetTokenDigest } from "../src/lib/password-reset.ts";
+import { isSameOriginRequest } from "../src/lib/request-security.ts";
 
 test("session versions revoke missing, stale and malformed JWT claims", () => {
   assert.equal(isSessionVersionCurrent(3, 3), true);
@@ -34,5 +35,30 @@ test("password reset tokens are HMAC-keyed and token-specific", () => {
   } finally {
     if (previous === undefined) delete process.env.AUTH_SECRET;
     else process.env.AUTH_SECRET = previous;
+  }
+});
+
+test("same-origin auth POSTs require HTTPS in production and exact origin matching", () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const secure = new Request("https://app.example.test/api/auth", {
+      method: "POST",
+      headers: { host: "app.example.test", origin: "https://app.example.test" }
+    });
+    const downgraded = new Request("https://app.example.test/api/auth", {
+      method: "POST",
+      headers: { host: "app.example.test", origin: "http://app.example.test" }
+    });
+    const foreign = new Request("https://app.example.test/api/auth", {
+      method: "POST",
+      headers: { host: "app.example.test", origin: "https://attacker.example" }
+    });
+    assert.equal(isSameOriginRequest(secure), true);
+    assert.equal(isSameOriginRequest(downgraded), false);
+    assert.equal(isSameOriginRequest(foreign), false);
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
   }
 });
