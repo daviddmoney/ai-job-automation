@@ -30,6 +30,14 @@ test("rate-limit buckets are cleaned and denials are audited once per window", {
       }
     });
 
+    await prisma.rateLimitBucket.create({
+      data: { key: expiredKey, count: 99, resetAt: new Date(Date.now() - 5000) }
+    });
+    assert.equal(await consumeRateLimit(expiredKey, 2, 60), true);
+    const resetBucket = await prisma.rateLimitBucket.findUniqueOrThrow({ where: { key: expiredKey } });
+    assert.equal(resetBucket.count, 1);
+    assert.ok(resetBucket.resetAt.getTime() > Date.now());
+
     const first = await consumeRateLimit(denialKey, 1, 600);
     const second = await consumeRateLimit(denialKey, 1, 600);
     const third = await consumeRateLimit(denialKey, 1, 600);
