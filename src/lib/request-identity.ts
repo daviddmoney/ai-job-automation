@@ -16,6 +16,17 @@ export function verifiedClientIp(request: Request) {
   return candidate.toLowerCase();
 }
 
+/** Build an identity-only bucket (for example, per-account limits) without
+ * mixing in the request IP. This keeps account limits effective across IP changes.
+ */
+export function identityRateLimitKey(scope: string, identifier: string) {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  return createHmac("sha256", secret)
+    .update(`${scope}:${identifier.trim().toLowerCase()}`)
+    .digest("hex");
+}
+
 export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
