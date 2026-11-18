@@ -2,7 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeEmailTwoFactorCode, issueEmailTwoFactorCode } from "../src/lib/two-factor.ts";
+import { consumeEmailTwoFactorCode, consumeEmailSecondFactorCode, issueEmailTwoFactorCode, otpDigest } from "../src/lib/two-factor.ts";
 
 const prisma = new PrismaClient();
 after(async () => { await prisma.$disconnect(); });
@@ -40,4 +40,37 @@ test("concurrent wrong email 2FA codes cannot exceed five attempts", async () =>
   assert.ok(results.every(result => result === false));
   const row = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   assert.equal(row.twoFactorEmailCodeAttempts, 5);
+}));
+
+test("email 2FA setup activates only after successful code confirmation", async () => withUser(async (user) => {
+  const validDigest = otpDigest("555555");
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      twoFactorEnabled: false,
+      twoFactorMethod: null,
+      twoFactorEmailCodeHash: validDigest,
+      twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+      twoFactorEmailCodeAttempts: 0
+    }
+  });
+
+  assert.equal(
+    await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("000000"), true),
+    false
+  );
+
+  const stillDisabled = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.equal(stillDisabled.twoFactorEnabled, false);
+  assert.equal(stillDisabled.twoFactorMethod, null);
+
+  assert.equal(
+    await consumeEmailSecondFactorCode(prisma, user.id, validDigest, true),
+    true
+  );
+
+  const activated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.equal(activated.twoFactorEnabled, true);
+  assert.equal(activated.twoFactorMethod, "EMAIL");
 }));
