@@ -39,10 +39,14 @@ export async function POST(request: Request) {
     const user = await tx.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
     if (!user?.emailVerified) return false;
     await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
-    const consumed = await tx.verificationToken.deleteMany({
-      where: { identifier, token: digest, expires: { gt: new Date() } }
-    });
-    if (consumed.count !== 1) return false;
+    const consumed = await tx.$queryRaw<Array<{ identifier: string }>>`
+      DELETE FROM "VerificationToken"
+      WHERE "identifier" = ${identifier}
+        AND "token" = ${digest}
+        AND "expires" > (clock_timestamp() AT TIME ZONE 'UTC')
+      RETURNING "identifier"
+    `;
+    if (consumed.length !== 1) return false;
     await tx.user.update({
       where: { id: user.id },
       data: { passwordHash, sessionVersion: { increment: 1 } }
