@@ -92,8 +92,8 @@ export async function consumeEmailSecondFactorCode(
   const rows = await db.$queryRaw<Array<{ accepted: boolean }>>`
     UPDATE "User"
     SET
-      "twoFactorEnabled" = CASE WHEN ${activate} THEN TRUE ELSE "twoFactorEnabled" END,
-      "twoFactorMethod" = CASE WHEN ${activate} THEN 'EMAIL' ELSE "twoFactorMethod" END,
+      "twoFactorEnabled" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN TRUE ELSE "twoFactorEnabled" END,
+      "twoFactorMethod" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 'EMAIL' ELSE "twoFactorMethod" END,
       "twoFactorEmailCodeHash" = CASE
         WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
         ELSE "twoFactorEmailCodeHash"
