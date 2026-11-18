@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeEmailSecondFactorCode, otpDigest } from "../src/lib/two-factor.ts";
+import { consumeEmailSecondFactorCode, emailSecondFactorDigest } from "../src/lib/two-factor.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.AUTH_SECRET;
@@ -14,7 +14,7 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
   const suffix = randomUUID();
   const email = `email-2fa-${suffix}@example.test`;
   const code = "654321";
-  const digest = otpDigest(code);
+  const digest = emailSecondFactorDigest(code);
   try {
     const user = await prisma.user.create({
       data: {
@@ -35,54 +35,54 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        twoFactorEmailCodeHash: otpDigest("111111"),
+        twoFactorEmailCodeHash: emailSecondFactorDigest("111111"),
         twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
         twoFactorEmailCodeAttempts: 0
       }
     });
     await Promise.all(Array.from({ length: 15 }, () =>
-      consumeEmailSecondFactorCode(prisma, user.id, otpDigest("222222"))));
+      consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("222222"))));
     const limited = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(limited.twoFactorEmailCodeAttempts, 5);
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("111111")), false);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("111111")), false);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        twoFactorEmailCodeHash: otpDigest("333333"),
+        twoFactorEmailCodeHash: emailSecondFactorDigest("333333"),
         twoFactorEmailCodeExpiresAt: new Date(Date.now() - 1000),
         twoFactorEmailCodeAttempts: 0
       }
     });
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("333333")), false);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("333333")), false);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         twoFactorEnabled: true,
         twoFactorMethod: "TOTP",
-        twoFactorEmailCodeHash: otpDigest("444444"),
+        twoFactorEmailCodeHash: emailSecondFactorDigest("444444"),
         twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
         twoFactorEmailCodeAttempts: 0
       }
     });
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("444444")), false);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("444444")), false);
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
         twoFactorEnabled: false,
         twoFactorMethod: null,
-        twoFactorEmailCodeHash: otpDigest("555555"),
+        twoFactorEmailCodeHash: emailSecondFactorDigest("555555"),
         twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
         twoFactorEmailCodeAttempts: 0
       }
     });
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("000000"), true), false);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("000000"), true), false);
     const stillDisabled = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(stillDisabled.twoFactorEnabled, false);
     assert.equal(stillDisabled.twoFactorMethod, null);
-    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("555555"), true), true);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest("555555"), true), true);
     const activated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(activated.twoFactorEnabled, true);
     assert.equal(activated.twoFactorMethod, "EMAIL");

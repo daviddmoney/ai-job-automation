@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { decryptTotpSecret, otpDigest, verifyTotpCounter, consumeEmailSecondFactorCode } from "@/lib/two-factor";
+import { decryptTotpSecret, otpDigest, emailSecondFactorDigest, verifyTotpCounter, consumeEmailSecondFactorCode } from "@/lib/two-factor";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
@@ -61,7 +61,7 @@ const providers = [
         } else if (user.twoFactorMethod === "EMAIL") {
           if (!/^\d{6}$/.test(code)) return null;
           try {
-            if (!(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest(code)))) return null;
+            if (!(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest(code)))) return null;
           } catch { return null; }
         }
       }

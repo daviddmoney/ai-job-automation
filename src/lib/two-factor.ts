@@ -75,6 +75,13 @@ export function otpDigest(code: string) {
   return createHash("sha256").update(`${secret}:${code}`).digest("hex");
 }
 
+/** HMAC-keyed digest for six-digit email OTPs; recovery-code hashes remain compatible. */
+export function emailSecondFactorDigest(code: string) {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  return createHmac("sha256", secret).update(code, "utf8").digest("hex");
+}
+
 /**
  * Atomically consumes an email second-factor code or increments its failed
  * attempt counter. When activate=true, successful consumption enables email
