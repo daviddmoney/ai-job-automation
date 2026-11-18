@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { consumeEmailTwoFactorCode, decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
+import { decryptTotpSecret, otpDigest, emailSecondFactorDigest, verifyTotpCounter, consumeEmailSecondFactorCode } from "@/lib/two-factor";
 import { consumeCredentialsLoginEndpointLimit, consumeLoginRateLimitPass } from "@/lib/rate-limit";
 
 class LoginRateLimitError extends CredentialsSignin { code = "rate_limited"; }
@@ -66,8 +66,9 @@ const providers = [
           } catch { return null; }
         } else if (user.twoFactorMethod === "EMAIL") {
           if (!/^\d{6}$/.test(code)) return null;
-          const digest = otpDigest(code);
-          if (!(await consumeEmailTwoFactorCode(prisma, user.id, digest))) return null;
+          try {
+            if (!(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest(code)))) return null;
+          } catch { return null; }
         }
       }
       return { id: user.id, name: user.name, email: user.email, role: user.role };
