@@ -1,10 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 
-/**
- * Only trust client IP metadata when a trusted edge overwrites both headers
- * and injects the matching secret. Arbitrary forwarding headers are ignored.
- */
 export function verifiedClientIp(request: Request) {
   const secret = process.env.TRUSTED_PROXY_HEADER_SECRET;
   const supplied = request.headers.get("x-trusted-proxy-token");
@@ -16,15 +12,10 @@ export function verifiedClientIp(request: Request) {
   return candidate.toLowerCase();
 }
 
-/** Build an identity-only bucket (for example, per-account limits) without
- * mixing in the request IP. This keeps account limits effective across IP changes.
- */
 export function identityRateLimitKey(scope: string, identifier: string) {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  return createHmac("sha256", secret)
-    .update(`${scope}:${identifier.trim().toLowerCase()}`)
-    .digest("hex");
+  return createHmac("sha256", secret).update(`${scope}:${identifier.trim().toLowerCase()}`).digest("hex");
 }
 
 export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
@@ -32,4 +23,10 @@ export function requestRateLimitKey(request: Request, scope: string, identifier 
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   const ip = verifiedClientIp(request);
   return createHmac("sha256", secret).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
+}
+
+/** No IP bucket is returned for unauthenticated edge identity; account limits remain mandatory. */
+export function verifiedIpRateLimitKey(request: Request, scope: string) {
+  if (verifiedClientIp(request) === "unknown") return null;
+  return requestRateLimitKey(request, scope);
 }
