@@ -40,40 +40,90 @@ const providers = [
         if (!limit.identityVerified) return null;
         if (!limit.allowed) throw new LoginRateLimitError();
       }
-      const user = await prisma.user.findUnique({ where: { email } });
-      if (!user?.passwordHash || !user.emailVerified) return null;
-      try { if (!(await verify(user.passwordHash, parsed.data.password))) return null; } catch { return null; }
 
-      if (user.twoFactorEnabled) {
-        const code = parsed.data.secondFactorCode;
-        if (!code || !parsed.data.secondFactorMethod || parsed.data.secondFactorMethod !== user.twoFactorMethod) return null;
-        if (user.twoFactorMethod === "TOTP") {
-          if (!user.twoFactorSecretCipher) return null;
+      try {
+        return await prisma.$transaction(async (tx) => {
+          // Serialize password/second-factor verification with security changes.
+          const locked = await tx.$queryRaw<Array<{ id: string }>>`
+            SELECT "id" FROM "User" WHERE "email" = ${email} FOR UPDATE
+          `;
+          if (locked.length !== 1) return null;
+
+          const user = await tx.user.findUnique({ where: { email } });
+          if (!user?.passwordHash || !user.emailVerified) return null;
           try {
-            if (/^\d{6}$/.test(code)) {
-              const counter = verifyTotpCounter(decryptTotpSecret(user.twoFactorSecretCipher), code);
-              if (counter === null) return null;
-              const consumed = await prisma.user.updateMany({
-                where: { id: user.id, twoFactorEnabled: true, twoFactorMethod: "TOTP", twoFactorSecretCipher: user.twoFactorSecretCipher, OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }] },
-                data: { twoFactorLastTotpCounter: BigInt(counter) }
-              });
-              if (consumed.count !== 1) return null;
-            } else {
-              const digest = otpDigest(code.toUpperCase());
-              const consumed = await prisma.$executeRaw`UPDATE "User"
-                SET "recoveryCodeHashes" = array_remove("recoveryCodeHashes", ${digest})
-                WHERE "id" = ${user.id} AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'TOTP' AND ${digest} = ANY("recoveryCodeHashes")`;
-              if (consumed !== 1) return null;
+            if (!(await verify(user.passwordHash, parsed.data.password))) return null;
+          } catch {
+            return null;
+          }
+
+          if (user.twoFactorEnabled) {
+            const code = parsed.data.secondFactorCode;
+            if (!code || !parsed.data.secondFactorMethod || parsed.data.secondFactorMethod !== user.twoFactorMethod) return null;
+            if (user.twoFactorMethod === "TOTP") {
+              if (!user.twoFactorSecretCipher) return null;
+              try {
+                if (/^\\d{6}$/.test(code)) {
+                  const counter = verifyTotpCounter(decryptTotpSecret(user.twoFactorSecretCipher), code);
+                  if (counter === null) return null;
+                  const consumed = await tx.user.updateMany({
+                    where: {
+                      id: user.id,
+                      twoFactorEnabled: true,
+                      twoFactorMethod: "TOTP",
+                      twoFactorSecretCipher: user.twoFactorSecretCipher,
+                      sessionVersion: user.sessionVersion,
+                      OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }]
+                    },
+                    data: { twoFactorLastTotpCounter: BigInt(counter) }
+                  });
+                  if (consumed.count !== 1) return null;
+                } else {
+                  const digest = otpDigest(code.toUpperCase());
+                  const consumed = await tx.$executeRaw`
+                    UPDATE "User"
+                    SET "recoveryCodeHashes" = array_remove("recoveryCodeHashes", ${digest}),
+                        "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+                    WHERE "id" = ${user.id}
+                      AND "twoFactorEnabled" = TRUE
+                      AND "twoFactorMethod" = 'TOTP'
+                      AND "sessionVersion" = ${user.sessionVersion}
+                      AND ${digest} = ANY("recoveryCodeHashes")
+                  `;
+                  if (consumed !== 1) return null;
+                  await tx.auditEvent.create({
+                    data: {
+                      userId: user.id,
+                      actorEmail: user.email ?? undefined,
+                      action: "TOTP_RECOVERY_CODE_USED",
+                      resource: "User",
+                      resourceId: user.id
+                    }
+                  });
+                }
+              } catch {
+                return null;
+              }
+            } else if (user.twoFactorMethod === "EMAIL") {
+              if (!/^\\d{6}$/.test(code)) return null;
+              try {
+                if (!(await consumeEmailSecondFactorCode(tx, user.id, emailSecondFactorDigest(code, user.id)))) return null;
+              } catch {
+                return null;
+              }
             }
-          } catch { return null; }
-        } else if (user.twoFactorMethod === "EMAIL") {
-          if (!/^\d{6}$/.test(code)) return null;
-          try {
-            if (!(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest(code, user.id)))) return null;
-          } catch { return null; }
-        }
+          }
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            sessionVersion: user.sessionVersion
+          };
+        });
+      } catch {
+        return null;
       }
-      return { id: user.id, name: user.name, email: user.email, role: user.role };
     }
   }),
   ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
@@ -112,7 +162,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: userId },
           select: { id: true, role: true, sessionVersion: true }
         });
-        if (!current || (!user && (!isSessionVersionCurrent(token.sessionVersion, current.sessionVersion)))) {
+        if (!current ||
+          (user && typeof user.sessionVersion === "number" && user.sessionVersion !== current.sessionVersion) ||
+          (!user && !isSessionVersionCurrent(token.sessionVersion, current.sessionVersion))) {
           delete token.sub;
           delete token.role;
           delete token.sessionVersion;
