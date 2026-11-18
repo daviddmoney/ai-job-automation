@@ -67,6 +67,25 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
       }
     });
     assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("444444")), false);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorMethod: null,
+        twoFactorEmailCodeHash: otpDigest("555555"),
+        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        twoFactorEmailCodeAttempts: 0
+      }
+    });
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("000000"), true), false);
+    const stillDisabled = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(stillDisabled.twoFactorEnabled, false);
+    assert.equal(stillDisabled.twoFactorMethod, null);
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("555555"), true), true);
+    const activated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(activated.twoFactorEnabled, true);
+    assert.equal(activated.twoFactorMethod, "EMAIL");
   } finally {
     await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();
