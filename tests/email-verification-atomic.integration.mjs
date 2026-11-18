@@ -13,7 +13,7 @@ test("email verification code can be consumed only once under concurrent request
   const suffix = randomUUID();
   const email = `otp-atomic-${suffix}@example.invalid`;
   const code = "482731";
-  const codeHash = emailVerificationCodeDigest(code);
+  const codeHash = emailVerificationCodeDigest(code, email);
   const user = await prisma.user.create({
     data: {
       email,

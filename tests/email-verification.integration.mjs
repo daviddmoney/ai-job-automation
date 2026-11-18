@@ -16,7 +16,7 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
   const suffix = randomUUID();
   const email = `otp-${suffix}@example.test`;
   const validCode = "123456";
-  const validDigest = emailVerificationCodeDigest(validCode);
+  const validDigest = emailVerificationCodeDigest(validCode, email);
   try {
     const user = await prisma.user.create({
       data: {
@@ -37,15 +37,15 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
     await prisma.user.create({
       data: {
         email: expiredEmail,
-        emailVerificationCodeHash: validDigest,
+        emailVerificationCodeHash: emailVerificationCodeDigest(validCode, expiredEmail),
         emailVerificationExpiresAt: new Date(Date.now() - 1000)
       }
     });
     assert.equal(await consumeEmailVerificationCode(prisma, expiredEmail, validDigest), false);
 
     const resendEmail = `resend-${suffix}@example.test`;
-    const oldDigest = emailVerificationCodeDigest("111111");
-    const newDigest = emailVerificationCodeDigest("222222");
+    const oldDigest = emailVerificationCodeDigest("111111", resendEmail);
+    const newDigest = emailVerificationCodeDigest("222222", resendEmail);
     await prisma.user.create({
       data: {
         email: resendEmail,
@@ -68,7 +68,7 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
     await prisma.user.create({
       data: {
         email: attemptsEmail,
-        emailVerificationCodeHash: validDigest,
+        emailVerificationCodeHash: emailVerificationCodeDigest(validCode, attemptsEmail),
         emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000)
       }
     });
@@ -76,7 +76,7 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
       consumeEmailVerificationCode(prisma, attemptsEmail, "f".repeat(64))));
     const limited = await prisma.user.findUniqueOrThrow({ where: { email: attemptsEmail } });
     assert.equal(limited.emailVerificationAttempts, 5);
-    assert.equal(await consumeEmailVerificationCode(prisma, attemptsEmail, validDigest), false);
+    assert.equal(await consumeEmailVerificationCode(prisma, attemptsEmail, emailVerificationCodeDigest(validCode, attemptsEmail)), false);
   } finally {
     await prisma.user.deleteMany({ where: { email: { in: [email, `expired-${suffix}@example.test`, `attempts-${suffix}@example.test`, `resend-${suffix}@example.test`] } } });
     await prisma.$disconnect();

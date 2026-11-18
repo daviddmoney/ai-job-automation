@@ -127,11 +127,13 @@ test("OTP digests are HMAC-keyed and reject a missing server secret", () => {
   const previous = process.env.AUTH_SECRET;
   try {
     delete process.env.AUTH_SECRET;
-    assert.throws(() => emailVerificationCodeDigest("123456"), /AUTH_SECRET_NOT_CONFIGURED/);
+    const email = "otp-regression@example.test";
+    assert.throws(() => emailVerificationCodeDigest("123456", email), /AUTH_SECRET_NOT_CONFIGURED/);
     const secret = "test-only-secret-with-at-least-32-characters";
     process.env.AUTH_SECRET = secret;
-    assert.equal(emailVerificationCodeDigest("123456"), createHmac("sha256", secret).update("123456").digest("hex"));
-    assert.notEqual(emailVerificationCodeDigest("123456"), emailVerificationCodeDigest("123457"));
+    assert.equal(emailVerificationCodeDigest("123456", email), createHmac("sha256", secret).update(`email-verification:v1:${email}:123456`).digest("hex"));
+    assert.notEqual(emailVerificationCodeDigest("123456", email), emailVerificationCodeDigest("123457", email));
+    assert.notEqual(emailVerificationCodeDigest("123456", email), emailVerificationCodeDigest("123456", "other@example.test"));
   } finally {
     if (previous === undefined) delete process.env.AUTH_SECRET;
     else process.env.AUTH_SECRET = previous;
