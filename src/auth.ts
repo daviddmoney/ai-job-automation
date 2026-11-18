@@ -64,7 +64,7 @@ const providers = [
             if (user.twoFactorMethod === "TOTP") {
               if (!user.twoFactorSecretCipher) return null;
               try {
-                if (/^\\d{6}$/.test(code)) {
+                if (/^\d{6}$/.test(code)) {
                   const counter = verifyTotpCounter(decryptTotpSecret(user.twoFactorSecretCipher), code);
                   if (counter === null) return null;
                   const consumed = await tx.user.updateMany({
@@ -106,7 +106,7 @@ const providers = [
                 return null;
               }
             } else if (user.twoFactorMethod === "EMAIL") {
-              if (!/^\\d{6}$/.test(code)) return null;
+              if (!/^\d{6}$/.test(code)) return null;
               try {
                 if (!(await consumeEmailSecondFactorCode(tx, user.id, emailSecondFactorDigest(code, user.id)))) return null;
               } catch {
