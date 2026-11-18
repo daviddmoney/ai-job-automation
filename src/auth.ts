@@ -7,7 +7,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
 import { consumeCredentialsLoginEndpointLimit, consumeLoginRateLimitPass } from "@/lib/rate-limit";
-import { hasValidLoginRateLimitPass } from "@/lib/request-identity";
 
 class LoginRateLimitError extends CredentialsSignin { code = "rate_limited"; }
 
