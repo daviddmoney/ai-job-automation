@@ -5,13 +5,21 @@ export { requestRateLimitKey, requestRateLimitKeys, verifiedClientIp } from "./r
 
 /** Atomic PostgreSQL counter. The key is a keyed hash, not a raw IP or email address. */
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) {
-  const resetAt = new Date(Date.now() + windowSeconds * 1000);
   const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+    WITH db_clock AS MATERIALIZED (SELECT clock_timestamp() AS now)
     INSERT INTO "RateLimitBucket" ("key", "count", "resetAt")
-    VALUES (${key}, 1, ${resetAt})
+    SELECT ${key}, 1, db_clock.now + (${windowSeconds} * INTERVAL '1 second')
+    FROM db_clock
     ON CONFLICT ("key") DO UPDATE SET
-      "count" = CASE WHEN "RateLimitBucket"."resetAt" <= NOW() THEN 1 ELSE "RateLimitBucket"."count" + 1 END,
-      "resetAt" = CASE WHEN "RateLimitBucket"."resetAt" <= NOW() THEN ${resetAt} ELSE "RateLimitBucket"."resetAt" END
+      "count" = CASE
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT now FROM db_clock) THEN 1
+        ELSE "RateLimitBucket"."count" + 1
+      END,
+      "resetAt" = CASE
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT now FROM db_clock)
+          THEN (SELECT now FROM db_clock) + (${windowSeconds} * INTERVAL '1 second')
+        ELSE "RateLimitBucket"."resetAt"
+      END
     RETURNING "count"
   `;
   return (rows[0]?.count ?? limit + 1) <= limit;
