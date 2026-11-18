@@ -77,3 +77,10 @@ export function requestRateLimitKey(request: Request, scope: string, identifier 
   const ip = verifiedClientIp(request) ?? "unverified";
   return hmacKey(`${scope}:${ip}:${identifier.toLowerCase()}`);
 }
+
+/** Identifier-wide limit shared across IP addresses to stop distributed OTP re-issuance. */
+export function identifierRateLimitKey(scope: string, identifier: string) {
+  const normalized = identifier.trim().toLowerCase();
+  if (!normalized) throw new Error("RATE_LIMIT_IDENTIFIER_REQUIRED");
+  return hmacKey(`${scope}:${normalized}`);
+}

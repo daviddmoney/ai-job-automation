@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 type VerificationDatabase = {
   $queryRaw<T = unknown>(
@@ -17,9 +17,7 @@ export function emailVerificationCodeDigest(code: string): string {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
 
-  return createHash("sha256")
-    .update(`${secret}:${code}`)
-    .digest("hex");
+  return createHmac("sha256", secret).update(code, "utf8").digest("hex");
 }
 
 /** Generate the ten-minute OTP expiry using PostgreSQL's live clock. */

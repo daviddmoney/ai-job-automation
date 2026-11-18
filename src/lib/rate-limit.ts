@@ -2,7 +2,7 @@ import { prisma } from "./prisma.ts";
 import { loginRateLimitPassKey, requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "./request-identity.ts";
 
 export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, verifiedClientIp } from "./request-identity.ts";
-
+export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, identifierRateLimitKey, verifiedClientIp } from "./request-identity.ts";
 export type RateLimitDecision = { allowed: boolean; retryAfterSeconds: number };
 
 /** Atomic PostgreSQL counter shared by every application instance using this database. */
