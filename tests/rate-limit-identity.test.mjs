@@ -62,7 +62,8 @@ test("login rate-limit pass is signed, nonce-bearing, and bound to the normalize
     const request = new Request("https://example.invalid/api", {
       headers: { "x-internal-login-rate-limit-pass": token }
     });
-    assert.equal(token.split(".").length, 3);\n    assert.equal(hasValidLoginRateLimitPass(request, "user@example.invalid"), true);
+    assert.equal(token.split(".").length, 3);
+    assert.equal(hasValidLoginRateLimitPass(request, "user@example.invalid"), true);
     assert.equal(hasValidLoginRateLimitPass(request, "other@example.invalid"), false);
     const tampered = new Request("https://example.invalid/api", {
       headers: { "x-internal-login-rate-limit-pass": token.slice(0, -1) + "0" }
