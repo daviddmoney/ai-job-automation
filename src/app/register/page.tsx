@@ -33,7 +33,7 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const retryAfter = response.status === 429 ? response.headers.get("Retry-After") : null;
-        const waitMessage = retryAfter && /^\\d+$/.test(retryAfter)
+        const waitMessage = retryAfter && /^\d+$/.test(retryAfter)
           ? ` Please wait ${retryAfter} seconds before trying again.`
           : "";
         setFeedback({
