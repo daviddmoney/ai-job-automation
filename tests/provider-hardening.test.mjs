@@ -182,7 +182,7 @@ test("Jooble preserves a complete all-failed keyword report without hiding failu
 });
 
 
-import { identityRateLimitKey, requestRateLimitKey, verifiedClientIp } from "../src/lib/request-identity.ts";
+import { identityRateLimitKey, requestRateLimitKey, verifiedClientIp, verifiedIpRateLimitKey } from "../src/lib/request-identity.ts";
 
 test("rate limiting ignores client-spoofed forwarding headers without a valid edge token", () => {
   const previousSecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
@@ -201,6 +201,8 @@ test("rate limiting ignores client-spoofed forwarding headers without a valid ed
   try {
     assert.equal(verifiedClientIp(spoofed), "unknown");
     assert.equal(verifiedClientIp(noToken), "unknown");
+    assert.equal(verifiedIpRateLimitKey(noToken, "login:ip"), null,
+      "unverified requests must not share a global IP bucket");
     assert.equal(verifiedClientIp(new Request("https://example.invalid/api", {
       headers: { "x-verified-client-ip": "not-an-ip", "x-trusted-proxy-token": process.env.TRUSTED_PROXY_HEADER_SECRET }
     })), "unknown");
