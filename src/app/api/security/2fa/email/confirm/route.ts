@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   catch { return NextResponse.json({ message: "Security service unavailable." }, { status: 503 }); }
   const body = await readLimitedJson(request, 4 * 1024);
   if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
-  const parsed = z.object({ code: z.string().regex(/^\\d{6}$/) }).safeParse(body.data);
+  const parsed = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "Enter the six-digit code sent to your email." }, { status: 400 });
   try {
     const activated = await consumeEmailSecondFactorCode(prisma, session.user.id, otpDigest(parsed.data.code), true);

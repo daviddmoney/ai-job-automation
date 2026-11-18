@@ -65,9 +65,9 @@ const providers = [
             }
           } catch { return null; }
         } else if (user.twoFactorMethod === "EMAIL") {
+          if (!/^\d{6}$/.test(code)) return null;
           const digest = otpDigest(code);
           if (!(await consumeEmailTwoFactorCode(prisma, user.id, digest))) return null;
-
         }
       }
       return { id: user.id, name: user.name, email: user.email, role: user.role };
