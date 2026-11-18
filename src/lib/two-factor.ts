@@ -76,10 +76,10 @@ export function otpDigest(code: string) {
 }
 
 /** HMAC-keyed digest for six-digit email OTPs; recovery-code hashes remain compatible. */
-export function emailSecondFactorDigest(code: string, userId: string) {
+export function emailSecondFactorDigest(code: string, userId: string, purpose: "login" | "activation" | "recovery" = "login") {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  return createHmac("sha256", secret).update(`email-second-factor:v1:${userId}:${code}`, "utf8").digest("hex");
+  return createHmac("sha256", secret).update(`email-second-factor:${purpose}:v1:${userId}:${code}`, "utf8").digest("hex");
 }
 
 /**
@@ -113,10 +113,15 @@ export async function consumeEmailSecondFactorCode(
         WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 0
         ELSE "twoFactorEmailCodeAttempts" + 1
       END,
+      "sessionVersion" = CASE
+        WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN "sessionVersion" + 1
+        ELSE "sessionVersion"
+      END,
       "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
     WHERE
       "id" = ${userId}
-      AND (${activate} OR ("twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL'))
+      AND ((${activate} = TRUE AND "twoFactorEnabled" = FALSE)
+        OR (${activate} = FALSE AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL'))
       AND "twoFactorEmailCodeHash" IS NOT NULL
       AND "twoFactorEmailCodeExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
       AND "twoFactorEmailCodeAttempts" < 5
@@ -133,4 +138,69 @@ export function totpUri(secret: string, email: string) {
   const label = encodeURIComponent(`AI Job Automation:${email}`);
   const issuer = encodeURIComponent("AI Job Automation");
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+}
+
+
+/**
+ * Email fallback recovery for a user who has lost their TOTP authenticator and
+ * recovery codes. Requires a verified email, password proof at the route, a
+ * fresh account-bound recovery OTP, expiry and the same five-attempt ceiling.
+ * Successful recovery disables TOTP and revokes all existing JWT sessions.
+ */
+export async function consumeEmailSecondFactorRecoveryCode(
+  db: RawQueryClient,
+  userId: string,
+  suppliedDigest: string
+): Promise<boolean> {
+  const rows = await db.$queryRaw<Array<{ accepted: boolean }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEnabled" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN FALSE
+        ELSE "twoFactorEnabled"
+      END,
+      "twoFactorMethod" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorMethod"
+      END,
+      "twoFactorSecretCipher" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorSecretCipher"
+      END,
+      "twoFactorPendingSecretCipher" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorPendingSecretCipher"
+      END,
+      "recoveryCodeHashes" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN ARRAY[]::text[]
+        ELSE "recoveryCodeHashes"
+      END,
+      "twoFactorEmailCodeHash" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeHash"
+      END,
+      "twoFactorEmailCodeExpiresAt" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeExpiresAt"
+      END,
+      "twoFactorEmailCodeAttempts" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 0
+        ELSE "twoFactorEmailCodeAttempts" + 1
+      END,
+      "sessionVersion" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN "sessionVersion" + 1
+        ELSE "sessionVersion"
+      END,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE
+      "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
+      AND "twoFactorEnabled" = TRUE
+      AND "twoFactorMethod" = 'TOTP'
+      AND "twoFactorEmailCodeHash" IS NOT NULL
+      AND "twoFactorEmailCodeExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
+      AND "twoFactorEmailCodeAttempts" < 5
+    RETURNING ("twoFactorEmailCodeHash" IS NULL) AS accepted
+  `;
+  return rows[0]?.accepted === true;
 }

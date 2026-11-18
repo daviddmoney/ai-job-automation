@@ -53,3 +53,15 @@ export async function sendSecondFactorCode(to: string, code: string) {
   text: "Your sign-in verification code is " + code + ". It expires in 5 minutes. If you did not try to sign in, secure your account.",
   html: "<p>Your sign-in verification code is:</p><p style=\"font-size:28px;font-weight:bold;letter-spacing:6px\">" + code + "</p><p>This code expires in 5 minutes.</p>" });
 }
+
+export async function sendAccountRecoveryCode(to: string, code: string) {
+ await sendEmail({ to, subject: "Your AI Job Automation account recovery code",
+  text: "Your account recovery code is " + code + ". It expires in 10 minutes. If you did not request this, secure your email account and contact support.",
+  html: "<p>Your account recovery code is:</p><p style=\\"font-size:28px;font-weight:bold;letter-spacing:6px\\">" + code + "</p><p>This code expires in 10 minutes.</p>" });
+}
+
+export async function sendPasswordResetLink(to: string, url: string) {
+ await sendEmail({ to, subject: "Reset your AI Job Automation password",
+  text: "Use this one-time link to reset your password: " + url + ". It expires in 15 minutes. If you did not request this, ignore this email.",
+  html: "<p>Use this one-time link to reset your password:</p><p><a href=\\"" + url + "\\">Reset password</a></p><p>This link expires in 15 minutes. If you did not request this, ignore this email.</p>" });
+}
