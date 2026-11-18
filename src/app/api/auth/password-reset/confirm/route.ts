@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
 import { passwordResetTokenDigest } from "@/lib/password-reset";
 
 export const runtime = "nodejs";
@@ -34,11 +34,27 @@ export async function POST(request: Request) {
   const email = parsed.data.email.trim().toLowerCase();
   const identifier = `password-reset:${email}`;
   const digest = passwordResetTokenDigest(parsed.data.token);
-  const passwordHash = await hash(parsed.data.newPassword, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
+  try {
+    if (!(await consumeRateLimit(identifierRateLimitKey("password-reset-confirm", email), 10, 3600))) {
+      return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
+    }
+  } catch {
+    return NextResponse.json({ message: "Password recovery is temporarily unavailable." }, { status: 503 });
+  }
   const reset = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
     if (!user?.emailVerified) return false;
     await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
+    const validToken = await tx.$queryRaw<Array<{ identifier: string }>>`
+      SELECT "identifier"
+      FROM "VerificationToken"
+      WHERE "identifier" = ${identifier}
+        AND "token" = ${digest}
+        AND "expires" > (clock_timestamp() AT TIME ZONE 'UTC')
+      FOR UPDATE
+    `;
+    if (validToken.length !== 1) return false;
+    const passwordHash = await hash(parsed.data.newPassword, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
     const consumed = await tx.$queryRaw<Array<{ identifier: string }>>`
       DELETE FROM "VerificationToken"
       WHERE "identifier" = ${identifier}
