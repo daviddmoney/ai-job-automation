@@ -48,7 +48,7 @@ function base32Decode(input: string) {
 export function createTotpSecret() { return base32Encode(randomBytes(20)); }
 
 export function verifyTotpCounter(secret: string, supplied: string, now = Date.now()): number | null {
-  if (!/^\\d{6}$/.test(supplied)) return null;
+  if (!/^\d{6}$/.test(supplied)) return null;
   const key = base32Decode(secret);
   const counter = Math.floor(now / 30_000);
   for (let offset = -1; offset <= 1; offset++) {

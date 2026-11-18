@@ -42,7 +42,7 @@ const providers = [
         if (user.twoFactorMethod === "TOTP") {
           if (!user.twoFactorSecretCipher) return null;
           try {
-            if (/^\\d{6}$/.test(code)) {
+            if (/^\d{6}$/.test(code)) {
               const counter = verifyTotpCounter(decryptTotpSecret(user.twoFactorSecretCipher), code);
               if (counter === null) return null;
               const consumed = await prisma.user.updateMany({
@@ -59,7 +59,7 @@ const providers = [
             }
           } catch { return null; }
         } else if (user.twoFactorMethod === "EMAIL") {
-          if (!/^\\d{6}$/.test(code)) return null;
+          if (!/^\d{6}$/.test(code)) return null;
           try {
             if (!(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest(code)))) return null;
           } catch { return null; }
