@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   const parsed = z.object({ code: z.string().regex(/^\d{6}$/) }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "Enter the six-digit code sent to your email." }, { status: 400 });
   try {
-    const activated = await consumeEmailSecondFactorCode(prisma, session.user.id, emailSecondFactorDigest(parsed.data.code), true);
+    const activated = await consumeEmailSecondFactorCode(prisma, session.user.id, emailSecondFactorDigest(parsed.data.code, session.user.id), true);
     if (!activated) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
     return NextResponse.json({ message: "Email two-factor authentication enabled." });
   } catch {

@@ -33,7 +33,7 @@ async function withUser(run) {
 
 test("email 2FA code is issued with PostgreSQL time and consumed exactly once", async () =>
   withUser(async (user) => {
-    const digest = emailSecondFactorDigest("654321");
+    const digest = emailSecondFactorDigest("654321", user.id);
     const expiry = await issueEmailTwoFactorCode(prisma, user.id, digest);
 
     assert.ok(expiry instanceof Date);
@@ -54,7 +54,7 @@ test("email 2FA code is issued with PostgreSQL time and consumed exactly once", 
 
 test("concurrent valid email 2FA submissions can succeed only once", async () =>
   withUser(async (user) => {
-    const digest = emailSecondFactorDigest("654321");
+    const digest = emailSecondFactorDigest("654321", user.id);
     await issueEmailTwoFactorCode(prisma, user.id, digest);
 
     const results = await Promise.all(
@@ -72,7 +72,7 @@ test("concurrent wrong email 2FA codes cannot exceed five attempts", async () =>
     await issueEmailTwoFactorCode(
       prisma,
       user.id,
-      emailSecondFactorDigest("111111")
+      emailSecondFactorDigest("111111", user.id)
     );
 
     const results = await Promise.all(
@@ -80,7 +80,7 @@ test("concurrent wrong email 2FA codes cannot exceed five attempts", async () =>
         consumeEmailSecondFactorCode(
           prisma,
           user.id,
-          emailSecondFactorDigest("222222")
+          emailSecondFactorDigest("222222", user.id)
         )
       )
     );
@@ -94,7 +94,7 @@ test("concurrent wrong email 2FA codes cannot exceed five attempts", async () =>
 
 test("expired email 2FA codes are rejected", async () =>
   withUser(async (user) => {
-    const digest = emailSecondFactorDigest("333333");
+    const digest = emailSecondFactorDigest("333333", user.id);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -114,7 +114,7 @@ test("expired email 2FA codes are rejected", async () =>
 
 test("email 2FA codes are rejected when the active method is not EMAIL", async () =>
   withUser(async (user) => {
-    const digest = emailSecondFactorDigest("444444");
+    const digest = emailSecondFactorDigest("444444", user.id);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -135,7 +135,7 @@ test("email 2FA codes are rejected when the active method is not EMAIL", async (
 
 test("email 2FA setup activates only after successful code confirmation", async () =>
   withUser(async (user) => {
-    const validDigest = emailSecondFactorDigest("555555");
+    const validDigest = emailSecondFactorDigest("555555", user.id);
 
     await prisma.user.update({
       where: { id: user.id },
@@ -152,7 +152,7 @@ test("email 2FA setup activates only after successful code confirmation", async 
       await consumeEmailSecondFactorCode(
         prisma,
         user.id,
-        emailSecondFactorDigest("000000"),
+        emailSecondFactorDigest("000000", user.id),
         true
       ),
       false

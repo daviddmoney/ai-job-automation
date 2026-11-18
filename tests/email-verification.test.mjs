@@ -109,23 +109,24 @@ test("OTP at the exact expiry boundary is rejected", async () => {
   assert.equal(database.state.emailVerificationAttempts, 0);
 });
 
-test("OTP digest is keyed and requires a configured server secret", () => {
+test("OTP digest is keyed, account-bound and requires a configured server secret", () => {
   const previousSecret = process.env.AUTH_SECRET;
 
   try {
     delete process.env.AUTH_SECRET;
 
     assert.throws(
-      () => emailVerificationCodeDigest("123456"),
+      () => emailVerificationCodeDigest("123456", "otp-regression@example.test"),
       /AUTH_SECRET_NOT_CONFIGURED/
     );
 
     process.env.AUTH_SECRET = "test-only-secret-with-at-least-32-characters";
 
-    const digest = emailVerificationCodeDigest("123456");
+    const digest = emailVerificationCodeDigest("123456", "otp-regression@example.test");
 
     assert.match(digest, /^[a-f0-9]{64}$/);
-    assert.notEqual(digest, emailVerificationCodeDigest("123457"));
+    assert.notEqual(digest, emailVerificationCodeDigest("123457", "otp-regression@example.test"));
+    assert.notEqual(digest, emailVerificationCodeDigest("123456", "other@example.test"));
   } finally {
     if (previousSecret === undefined) {
       delete process.env.AUTH_SECRET;
