@@ -227,7 +227,12 @@ test("a signed credentials callback marker can be consumed once and cannot be re
   const key = loginRateLimitPassKey(request, email);
   try {
     assert.ok(key);
-    assert.equal(await consumeLoginRateLimitPass(request, email), true);
+    const replayAttempts = await Promise.all([
+      consumeLoginRateLimitPass(request, email),
+      consumeLoginRateLimitPass(request, email)
+    ]);
+    assert.equal(replayAttempts.filter(result => result === true).length, 1);
+    assert.equal(replayAttempts.filter(result => result === false).length, 1);
     assert.equal(await consumeLoginRateLimitPass(request, email), false);
     assert.equal(await consumeLoginRateLimitPass(request, "other@example.invalid"), null);
   } finally {
