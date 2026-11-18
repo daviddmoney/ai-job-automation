@@ -85,7 +85,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/signin" },
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
+      // Do not let an unverified Google address establish a verified app account.
+      if (account?.provider === "google") {
+        const googleProfile = profile as { email_verified?: unknown } | undefined;
+        if (googleProfile?.email_verified !== true) return false;
+      }
       if (account?.provider !== "credentials" && user.email) {
         const existing = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { twoFactorEnabled: true, emailVerified: true } });
         if (existing?.twoFactorEnabled || (existing && !existing.emailVerified)) return false;
