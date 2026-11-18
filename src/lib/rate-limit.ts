@@ -1,7 +1,7 @@
-import { prisma } from "./prisma";
-import { requestRateLimitKey } from "./request-identity";
+import { prisma } from "./prisma.ts";
+import { requestRateLimitKey } from "./request-identity.ts";
 
-export { requestRateLimitKey, identifierRateLimitKey, verifiedClientIp } from "./request-identity";
+export { requestRateLimitKey, identifierRateLimitKey, verifiedClientIp } from "./request-identity.ts";
 
 let callsSinceCleanup = 0;
 const CLEANUP_EVERY_CALLS = 100;
