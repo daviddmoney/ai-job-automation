@@ -30,11 +30,11 @@ const providers = [
       const parsed = credentialsSchema.safeParse(rawCredentials);
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
-      if (!hasValidLoginRateLimitPass(request, email)) {
+      const marker = await consumeLoginRateLimitPass(request, email).catch(() => null);
+      if (marker === false) throw new LoginRateLimitError();
+      if (marker === null) {
         let limit;
-        try {
-          limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
-        } catch { return null; }
+        try { limit = await consumeCredentialsLoginEndpointLimit(request, email); } catch { return null; }
         if (!limit.identityVerified) return null;
         if (!limit.allowed) throw new LoginRateLimitError();
       }
