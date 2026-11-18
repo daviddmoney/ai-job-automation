@@ -74,7 +74,7 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
       data: {
         twoFactorEnabled: false,
         twoFactorMethod: null,
-        twoFactorEmailCodeHash: digestFor("555555", user.id),
+        twoFactorEmailCodeHash: digestFor("555555", user.id, "activation"),
         twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
         twoFactorEmailCodeAttempts: 0
       }

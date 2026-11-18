@@ -30,6 +30,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-only-test-secret-with-at-least-32-characters
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
