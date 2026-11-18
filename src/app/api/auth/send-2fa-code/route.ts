@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
   } catch { return NextResponse.json({ message: "Sign-in code delivery is temporarily unavailable." }, { status: 503 }); }
   const code = newEmailOtp();
-  const codeHash = emailSecondFactorDigest(code);
+  const codeHash = emailSecondFactorDigest(code, user.id);
   await prisma.user.update({ where: { id: user.id }, data: { twoFactorEmailCodeHash: codeHash, twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000), twoFactorEmailCodeAttempts: 0 } });
   try {
     await sendSecondFactorCode(user.email, code);

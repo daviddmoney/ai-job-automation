@@ -4,12 +4,12 @@ import { createHmac } from "node:crypto";
  * A six-digit OTP has only one million possible values. Use a keyed digest
  * so a database-only disclosure cannot be brute-forced offline.
  */
-export function emailVerificationCodeDigest(code: string): string {
+export function emailVerificationCodeDigest(code: string, email: string): string {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
-  return createHmac("sha256", secret).update(code, "utf8").digest("hex");
+  return createHmac("sha256", secret).update(`email-verification:v1:${email.trim().toLowerCase()}:${code}`, "utf8").digest("hex");
 }
 
 type RawQueryClient = {

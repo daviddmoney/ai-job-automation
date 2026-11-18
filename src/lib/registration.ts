@@ -23,7 +23,7 @@ export async function registerAccount(input: unknown) {
   if (existing?.emailVerified) return { ok: false as const, status: 409, message: "An account with this email already exists." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const codeHash = emailVerificationCodeDigest(code);
+  const codeHash = emailVerificationCodeDigest(code, email);
   const passwordHash = await hash(parsed.data.password, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -81,7 +81,7 @@ export async function verifyAccountEmail(input: unknown) {
   }
 
   const email = parsed.data.email.toLowerCase();
-  const suppliedDigest = emailVerificationCodeDigest(parsed.data.code);
+  const suppliedDigest = emailVerificationCodeDigest(parsed.data.code, email);
   const verified = await consumeEmailVerificationCode(prisma, email, suppliedDigest);
 
   return verified
