@@ -6,7 +6,7 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, emailSecondFactorDigest, verifyTotpCounter, consumeEmailSecondFactorCode } from "@/lib/two-factor";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey, verifiedClientIp } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -29,8 +29,16 @@ const providers = [
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
       try {
-        const key = requestRateLimitKey(request, "login", email);
-        if (!(await consumeRateLimit(key, 10, 900))) return null;
+        // Apply independent account and trusted-client-IP limits. If the
+        // trusted proxy identity is unavailable, never trust forwarding
+        // headers or collapse every user's login attempts into one IP bucket;
+        // the account-wide limiter remains active.
+        const accountKey = identifierRateLimitKey("login-email", email);
+        if (!(await consumeRateLimit(accountKey, 10, 900))) return null;
+        if (verifiedClientIp(request) !== "unknown") {
+          const ipKey = requestRateLimitKey(request, "login-ip");
+          if (!(await consumeRateLimit(ipKey, 30, 900))) return null;
+        }
       } catch { return null; }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
