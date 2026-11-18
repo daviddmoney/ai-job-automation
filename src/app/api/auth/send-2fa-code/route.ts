@@ -5,13 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { newEmailOtp, emailSecondFactorDigest, issueEmailSecondFactorCode } from "@/lib/two-factor";
 import { sendSecondFactorCode } from "@/lib/email";
 import { readLimitedJson } from "@/lib/request-body";
+import { isSameOriginRequest } from "@/lib/request-security";
 import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  try { if (!origin || new URL(origin).host !== request.headers.get("host")) return NextResponse.json({ message: "Request rejected." }, { status: 403 }); }
-  catch { return NextResponse.json({ message: "Request rejected." }, { status: 403 }); }
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   const body = await readLimitedJson(request, 8 * 1024);
   if (!body.ok) return NextResponse.json({ message: body.message }, { status: body.status });
   const parsed = z.object({ email: z.string().email().max(254), password: z.string().min(1).max(256) }).safeParse(body.data);

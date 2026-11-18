@@ -35,8 +35,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Too many code requests. Try again later." }, { status: 429 });
     }
     const code = newEmailOtp();
-    const digest = emailSecondFactorDigest(code, user.id, "login");
-    const issued = await issueEmailSecondFactorCode(prisma, user.id, digest, 5, "login");
+    const digest = emailSecondFactorDigest(code, user.id, "disable");
+    const issued = await issueEmailSecondFactorCode(prisma, user.id, digest, 5, "disable");
     if (!issued) return NextResponse.json({ message: "Two-factor settings changed. Refresh and try again." }, { status: 409 });
     try {
       await sendSecondFactorCode(user.email, code);

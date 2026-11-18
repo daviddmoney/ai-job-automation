@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         const consumed = await consumeEmailSecondFactorCode(
           tx,
           user.id,
-          emailSecondFactorDigest(parsed.data.code, user.id, "login")
+          emailSecondFactorDigest(parsed.data.code, user.id, "disable")
         );
         if (!consumed) return false;
         const changed = await tx.user.updateMany({
