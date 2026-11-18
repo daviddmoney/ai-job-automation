@@ -50,7 +50,7 @@ export async function verifyAccountEmail(input: unknown) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const supplied = codeDigest(parsed.data.code);
-  const verified = await consumeEmailVerificationCode(prisma.user, email, supplied);
+  const verified = await consumeEmailVerificationCode(prisma, email, supplied);
 
   if (verified) {
     return { ok: true as const, message: "Email verified. You can now sign in." };
