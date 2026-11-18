@@ -13,7 +13,7 @@ async function withUser(run, { digest = "correct-digest", expiresAt = new Date(D
     email, emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt,
     emailVerificationAttempts: attempts
   }});
-  try { await run({ email, user, consume: (code = digest) => consumeEmailVerificationCode(prisma.user, email, code) }); }
+  try { await run({ email, user, consume: (code = digest) => consumeEmailVerificationCode(prisma, email, code) }); }
   finally { await prisma.user.delete({ where: { id: user.id } }); }
 }
 async function reload(id) { return prisma.user.findUniqueOrThrow({ where: { id } }); }
@@ -24,7 +24,7 @@ test("1. valid, unexpired OTP verifies and is consumed", async () => withUser(as
   assert.ok(row.emailVerified); assert.equal(row.emailVerificationCodeHash, null);
   assert.equal(row.emailVerificationExpiresAt, null); assert.equal(row.emailVerificationAttempts, 0);
 }));
-test("2. expired OTP is rejected using server time", async () => withUser(async ({ user, consume }) => {
+test("2. expired OTP is rejected using PostgreSQL live time", async () => withUser(async ({ user, consume }) => {
   assert.equal(await consume(), false);
   const row = await reload(user.id); assert.equal(row.emailVerified, null);
   assert.equal(row.emailVerificationAttempts, 0);
@@ -65,7 +65,7 @@ test("8. resending replaces the stored digest and invalidates the previous OTP",
   assert.ok((await reload(user.id)).emailVerified);
 }, { digest: "old-digest" }));
 test("9. a database error during verification does not partially verify the account", async () => withUser(async ({ user, email }) => {
-  const failingStore = { updateMany: async () => { throw new Error("simulated database outage"); } };
+  const failingStore = { $queryRaw: async () => { throw new Error("simulated database outage"); } };
   await assert.rejects(() => consumeEmailVerificationCode(failingStore, email, "correct-digest"), /simulated database outage/);
   const row = await reload(user.id);
   assert.equal(row.emailVerified, null); assert.equal(row.emailVerificationCodeHash, "correct-digest");
