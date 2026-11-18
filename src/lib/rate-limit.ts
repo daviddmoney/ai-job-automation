@@ -66,3 +66,22 @@ export async function consumeIndependentRateLimits(
     identityVerified: true
   };
 }
+
+
+/** Consume a valid signed callback marker exactly once. Null means invalid/missing. */
+export async function consumeLoginRateLimitPass(request: Request, identifier: string): Promise<boolean | null> {
+  const { loginRateLimitPassKey } = await import("./request-identity.ts");
+  const key = loginRateLimitPassKey(request, identifier);
+  if (!key) return null;
+  return (await consumeRateLimitWithInfo(key, 1, 30)).allowed;
+}
+
+/** Shared credentials-login endpoint gate used by both callback and server action paths. */
+export async function consumeCredentialsLoginEndpointLimit(request: Request, identifier: string) {
+  return consumeIndependentRateLimits(request, "login", identifier, 30, 10, 15 * 60);
+}
+
+/** IP-only gate for OAuth initiation, where the user's account is not yet known. */
+export async function consumeOAuthInitiationEndpointLimit(request: Request) {
+  return consumeIndependentRateLimits(request, "oauth-login", "", 30, 1, 15 * 60);
+}
