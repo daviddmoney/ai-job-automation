@@ -54,7 +54,7 @@ test("IP and account keys are independent, normalized, and opaque", () => {
   }
 });
 
-test("login rate-limit pass is signed and bound to the normalized account", () => {
+test("login rate-limit pass is signed, nonce-bearing, and bound to the normalized account", () => {
   const oldAuth = process.env.AUTH_SECRET;
   process.env.AUTH_SECRET = "test-auth-secret-that-is-at-least-32-characters-long";
   try {
@@ -62,7 +62,7 @@ test("login rate-limit pass is signed and bound to the normalized account", () =
     const request = new Request("https://example.invalid/api", {
       headers: { "x-internal-login-rate-limit-pass": token }
     });
-    assert.equal(hasValidLoginRateLimitPass(request, "user@example.invalid"), true);
+    assert.equal(token.split(".").length, 3);\n    assert.equal(hasValidLoginRateLimitPass(request, "user@example.invalid"), true);
     assert.equal(hasValidLoginRateLimitPass(request, "other@example.invalid"), false);
     const tampered = new Request("https://example.invalid/api", {
       headers: { "x-internal-login-rate-limit-pass": token.slice(0, -1) + "0" }
