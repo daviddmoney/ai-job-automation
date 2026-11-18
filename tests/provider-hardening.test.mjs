@@ -182,7 +182,7 @@ test("Jooble preserves a complete all-failed keyword report without hiding failu
 });
 
 
-import { requestRateLimitKey, verifiedClientIp } from "../src/lib/request-identity.ts";
+import { identityRateLimitKey, requestRateLimitKey, verifiedClientIp } from "../src/lib/request-identity.ts";
 
 test("rate limiting ignores client-spoofed forwarding headers without a valid edge token", () => {
   const previousSecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
@@ -236,5 +236,36 @@ test("rate limiting accepts valid authenticated IPv4/IPv6 edge identity and hash
     else process.env.TRUSTED_PROXY_HEADER_SECRET = previousSecret;
     if (previousAuthSecret === undefined) delete process.env.AUTH_SECRET;
     else process.env.AUTH_SECRET = previousAuthSecret;
+  }
+});
+
+
+test("login IP and email rate-limit keys are independent dimensions", () => {
+  const previousSecret = process.env.AUTH_SECRET;
+  const previousProxySecret = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  process.env.AUTH_SECRET = "test-auth-secret-that-is-at-least-32-characters-long";
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "trusted-edge-test-secret-that-is-long-enough";
+  try {
+    const ipA = new Request("https://example.invalid/api", {
+      headers: { "x-verified-client-ip": "203.0.113.10", "x-trusted-proxy-token": process.env.TRUSTED_PROXY_HEADER_SECRET }
+    });
+    const ipB = new Request("https://example.invalid/api", {
+      headers: { "x-verified-client-ip": "203.0.113.11", "x-trusted-proxy-token": process.env.TRUSTED_PROXY_HEADER_SECRET }
+    });
+    const ipKeyA = requestRateLimitKey(ipA, "login:ip");
+    const ipKeyB = requestRateLimitKey(ipB, "login:ip");
+    const emailKeyA = identityRateLimitKey("login:email", "person@example.invalid");
+    const emailKeySame = identityRateLimitKey("login:email", "PERSON@example.invalid");
+    const emailKeyB = identityRateLimitKey("login:email", "other@example.invalid");
+    assert.notEqual(ipKeyA, ipKeyB, "different verified IPs must have different IP buckets");
+    assert.equal(emailKeyA, emailKeySame, "email buckets must normalize case");
+    assert.notEqual(emailKeyA, emailKeyB, "different accounts must have different email buckets");
+    assert.equal(identityRateLimitKey("login:email", "person@example.invalid"), emailKeyA,
+      "email bucket must not depend on the request IP");
+  } finally {
+    if (previousSecret === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousSecret;
+    if (previousProxySecret === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousProxySecret;
   }
 });
