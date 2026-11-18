@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
 import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
-import { emailSecondFactorDigest, newEmailOtp } from "@/lib/two-factor";
+import { emailSecondFactorDigest, issueEmailSecondFactorCode, newEmailOtp } from "@/lib/two-factor";
 import { sendAccountRecoveryCode } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -42,15 +42,8 @@ export async function POST(request: Request) {
       if (await verify(user.passwordHash, parsed.data.password)) {
         const code = newEmailOtp();
         const digest = emailSecondFactorDigest(code, user.id, "recovery");
-        const issued = await prisma.user.updateMany({
-          where: { id: user.id, emailVerified: { not: null }, twoFactorEnabled: true, twoFactorMethod: "TOTP" },
-          data: {
-            twoFactorEmailCodeHash: digest,
-            twoFactorEmailCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-            twoFactorEmailCodeAttempts: 0
-          }
-        });
-        if (issued.count === 1) {
+        const issued = await issueEmailSecondFactorCode(prisma, user.id, digest, 10, "recovery");
+        if (issued) {
           try { await sendAccountRecoveryCode(user.email, code); }
           catch {
             await prisma.user.updateMany({

@@ -212,3 +212,33 @@ export async function consumeEmailSecondFactorRecoveryCode(
   `;
   return rows[0]?.accepted === true;
 }
+
+/** Issue an account-bound email OTP with a database-clock expiry. */
+export async function issueEmailSecondFactorCode(
+  db: RawQueryClient,
+  userId: string,
+  digest: string,
+  expiresMinutes: number,
+  purpose: "login" | "activation" | "recovery"
+): Promise<boolean> {
+  if (!Number.isInteger(expiresMinutes) || expiresMinutes < 1 || expiresMinutes > 15) {
+    throw new Error("INVALID_EMAIL_2FA_EXPIRY");
+  }
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEmailCodeHash" = ${digest},
+      "twoFactorEmailCodeExpiresAt" = (clock_timestamp() AT TIME ZONE 'UTC') + (${expiresMinutes} * INTERVAL '1 minute'),
+      "twoFactorEmailCodeAttempts" = 0,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
+      AND (
+        (${purpose} = 'login' AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL')
+        OR (${purpose} = 'activation' AND "twoFactorEnabled" = FALSE)
+        OR (${purpose} = 'recovery' AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'TOTP')
+      )
+    RETURNING "id"
+  `;
+  return rows.length === 1;
+}

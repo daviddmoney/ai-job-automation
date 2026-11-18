@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isSameOriginRequest } from "@/lib/request-security";
 import { readLimitedJson } from "@/lib/request-body";
 import { consumeRateLimit, identifierRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
-import { emailSecondFactorDigest, newEmailOtp } from "@/lib/two-factor";
+import { emailSecondFactorDigest, issueEmailSecondFactorCode, newEmailOtp } from "@/lib/two-factor";
 import { sendSecondFactorCode } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -36,15 +36,8 @@ export async function POST(request: Request) {
     }
     const code = newEmailOtp();
     const digest = emailSecondFactorDigest(code, user.id, "login");
-    const issued = await prisma.user.updateMany({
-      where: { id: user.id, twoFactorEnabled: true, twoFactorMethod: "EMAIL", emailVerified: { not: null } },
-      data: {
-        twoFactorEmailCodeHash: digest,
-        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
-        twoFactorEmailCodeAttempts: 0
-      }
-    });
-    if (issued.count !== 1) return NextResponse.json({ message: "Two-factor settings changed. Refresh and try again." }, { status: 409 });
+    const issued = await issueEmailSecondFactorCode(prisma, user.id, digest, 5, "login");
+    if (!issued) return NextResponse.json({ message: "Two-factor settings changed. Refresh and try again." }, { status: 409 });
     try {
       await sendSecondFactorCode(user.email, code);
       return NextResponse.json({ message: "A fresh confirmation code has been sent to your verified email." });
