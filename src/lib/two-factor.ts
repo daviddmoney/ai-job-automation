@@ -233,6 +233,10 @@ export async function consumeEmailSecondFactorRecoveryCode(
         WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN ARRAY[]::text[]
         ELSE "recoveryCodeHashes"
       END,
+      "twoFactorLastTotpCounter" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorLastTotpCounter"
+      END,
       "twoFactorEmailCodeHash" = CASE
         WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
         ELSE "twoFactorEmailCodeHash"

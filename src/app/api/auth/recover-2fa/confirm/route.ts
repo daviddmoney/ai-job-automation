@@ -12,12 +12,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   try {
-    const bodyForLimit = await request.clone().json().catch(() => null) as { email?: unknown } | null;
-    const emailForLimit = typeof bodyForLimit?.email === "string" ? bodyForLimit.email.trim().toLowerCase() : "";
-    if (!(await consumeRateLimit(requestRateLimitKey(request, "two-factor-recovery-confirm", emailForLimit), 8, 3600))) {
-      return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
-    }
-    if (emailForLimit && !(await consumeRateLimit(identifierRateLimitKey("two-factor-recovery-confirm", emailForLimit), 10, 3600))) {
+    if (!(await consumeRateLimit(requestRateLimitKey(request, "two-factor-recovery-confirm"), 8, 3600))) {
       return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
     }
   } catch {
@@ -28,11 +23,18 @@ export async function POST(request: Request) {
   const parsed = z.object({
     email: z.string().email().max(254),
     password: z.string().min(1).max(256),
-    code: z.string().regex(/^\d{6}$/)
+    code: z.string().regex(/^\\d{6}$/)
   }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "The recovery details are invalid or expired." }, { status: 400 });
 
   const email = parsed.data.email.trim().toLowerCase();
+  try {
+    if (!(await consumeRateLimit(identifierRateLimitKey("two-factor-recovery-confirm", email), 10, 3600))) {
+      return NextResponse.json({ message: "Too many attempts. Try again later." }, { status: 429 });
+    }
+  } catch {
+    return NextResponse.json({ message: "Account recovery is temporarily unavailable." }, { status: 503 });
+  }
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, email: true, passwordHash: true, emailVerified: true, twoFactorEnabled: true, twoFactorMethod: true }

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import {
   consumeEmailSecondFactorCode,
+  consumeEmailSecondFactorRecoveryCode,
   issueEmailTwoFactorCode,
   emailSecondFactorDigest
 } from "../src/lib/two-factor.ts";
@@ -179,5 +180,46 @@ test("email 2FA setup activates only after successful code confirmation", async 
     });
     assert.equal(activated.twoFactorEnabled, true);
     assert.equal(activated.twoFactorMethod, "EMAIL");
+  })
+);
+
+test("email recovery code atomically disables TOTP and revokes sessions", async () =>
+  withUser(async (user) => {
+    const recoveryDigest = emailSecondFactorDigest("777777", user.id, "recovery");
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: new Date(),
+        twoFactorEnabled: true,
+        twoFactorMethod: "TOTP",
+        twoFactorSecretCipher: "test-cipher",
+        twoFactorPendingSecretCipher: "test-pending-cipher",
+        recoveryCodeHashes: ["previous-recovery-hash"],
+        twoFactorLastTotpCounter: BigInt(123),
+        twoFactorEmailCodeHash: recoveryDigest,
+        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        twoFactorEmailCodeAttempts: 0
+      }
+    });
+
+    const recoveryResults = await Promise.all(
+      Array.from({ length: 12 }, () =>
+        consumeEmailSecondFactorRecoveryCode(prisma, user.id, recoveryDigest)
+      )
+    );
+    assert.equal(recoveryResults.filter(Boolean).length, 1);
+
+    const recovered = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id }
+    });
+    assert.equal(recovered.twoFactorEnabled, false);
+    assert.equal(recovered.twoFactorMethod, null);
+    assert.equal(recovered.twoFactorSecretCipher, null);
+    assert.equal(recovered.twoFactorPendingSecretCipher, null);
+    assert.deepEqual(recovered.recoveryCodeHashes, []);
+    assert.equal(recovered.twoFactorEmailCodeHash, null);
+    assert.equal(recovered.twoFactorLastTotpCounter, null);
+    assert.equal(recovered.sessionVersion, user.sessionVersion + 1);
   })
 );
