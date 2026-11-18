@@ -55,6 +55,18 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
       }
     });
     assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("333333")), false);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        twoFactorEnabled: true,
+        twoFactorMethod: "TOTP",
+        twoFactorEmailCodeHash: otpDigest("444444"),
+        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        twoFactorEmailCodeAttempts: 0
+      }
+    });
+    assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, otpDigest("444444")), false);
   } finally {
     await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();

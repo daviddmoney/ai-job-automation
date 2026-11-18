@@ -46,7 +46,7 @@ const providers = [
               const counter = verifyTotpCounter(decryptTotpSecret(user.twoFactorSecretCipher), code);
               if (counter === null) return null;
               const consumed = await prisma.user.updateMany({
-                where: { id: user.id, twoFactorEnabled: true, OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }] },
+                where: { id: user.id, twoFactorEnabled: true, twoFactorMethod: "TOTP", twoFactorSecretCipher: user.twoFactorSecretCipher, OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }] },
                 data: { twoFactorLastTotpCounter: BigInt(counter) }
               });
               if (consumed.count !== 1) return null;
@@ -54,7 +54,7 @@ const providers = [
               const digest = otpDigest(code.toUpperCase());
               const consumed = await prisma.$executeRaw`UPDATE "User"
                 SET "recoveryCodeHashes" = array_remove("recoveryCodeHashes", ${digest})
-                WHERE "id" = ${user.id} AND ${digest} = ANY("recoveryCodeHashes")`;
+                WHERE "id" = ${user.id} AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'TOTP' AND ${digest} = ANY("recoveryCodeHashes")`;
               if (consumed !== 1) return null;
             }
           } catch { return null; }

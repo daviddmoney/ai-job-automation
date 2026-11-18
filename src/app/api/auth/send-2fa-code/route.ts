@@ -20,14 +20,16 @@ export async function POST(request: NextRequest) {
   try {
     const key = requestRateLimitKey(request, "send-2fa", email);
     if (!(await consumeRateLimit(key, 3, 600))) return NextResponse.json({ message: "Too many code requests. Please wait before trying again." }, { status: 429 });
-    if (!(await consumeRateLimit(identifierRateLimitKey("email-2fa-issue", email), 3, 600))) {
-      return NextResponse.json({ message: "Too many code requests. Please wait before trying again." }, { status: 429 });
-    }
   } catch { return NextResponse.json({ message: "Sign-in code delivery is temporarily unavailable." }, { status: 503 }); }
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user?.passwordHash || !user.emailVerified || !user.twoFactorEnabled || user.twoFactorMethod !== "EMAIL") return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 });
   try { if (!(await verify(user.passwordHash, parsed.data.password))) return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 }); }
   catch { return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 }); }
+  try {
+    if (!(await consumeRateLimit(identifierRateLimitKey("email-2fa-issue", email), 3, 600))) {
+      return NextResponse.json({ message: "Too many code requests. Please wait before trying again." }, { status: 429 });
+    }
+  } catch { return NextResponse.json({ message: "Sign-in code delivery is temporarily unavailable." }, { status: 503 }); }
   const code = newEmailOtp();
   const codeHash = otpDigest(code);
   await prisma.user.update({ where: { id: user.id }, data: { twoFactorEmailCodeHash: codeHash, twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000), twoFactorEmailCodeAttempts: 0 } });
