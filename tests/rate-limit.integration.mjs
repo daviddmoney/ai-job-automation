@@ -163,3 +163,71 @@ test("missing account identifiers still consume the verified IP bucket", async (
     else process.env.AUTH_SECRET = previousAuth;
   }
 });
+
+
+test("credentials login endpoint gate blocks repeated requests after the account threshold", async () => {
+  const previousProxy = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  const previousAuth = process.env.AUTH_SECRET;
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "integration-proxy-secret-long-enough-for-tests";
+  process.env.AUTH_SECRET = "integration-auth-secret-long-enough-for-rate-limit-tests";
+  const email = `repeat-${randomUUID()}@example.invalid`;
+  const request = proxyRequest("203.0.113.51");
+  const ipKey = requestIpRateLimitKey(request, "login");
+  const accountKey = requestAccountRateLimitKey("login", email);
+  try {
+    const decisions = [];
+    for (let index = 0; index < 12; index++) decisions.push(await consumeCredentialsLoginEndpointLimit(request, email));
+    assert.equal(decisions.filter(result => result.allowed).length, 10);
+    assert.equal(decisions.filter(result => !result.allowed).length, 2);
+    assert.ok(decisions.every(result => result.identityVerified));
+  } finally {
+    await prisma.rateLimitBucket.deleteMany({ where: { key: { in: [ipKey, accountKey] } } });
+    if (previousProxy === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousProxy;
+    if (previousAuth === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousAuth;
+  }
+});
+
+test("Google OAuth initiation endpoint gate blocks repeated requests from one IP", async () => {
+  const previousProxy = process.env.TRUSTED_PROXY_HEADER_SECRET;
+  const previousAuth = process.env.AUTH_SECRET;
+  process.env.TRUSTED_PROXY_HEADER_SECRET = "integration-proxy-secret-long-enough-for-tests";
+  process.env.AUTH_SECRET = "integration-auth-secret-long-enough-for-rate-limit-tests";
+  const request = proxyRequest("203.0.113.52");
+  const ipKey = requestIpRateLimitKey(request, "oauth-login");
+  try {
+    const decisions = [];
+    for (let index = 0; index < 32; index++) decisions.push(await consumeOAuthInitiationEndpointLimit(request));
+    assert.equal(decisions.filter(result => result.allowed).length, 30);
+    assert.equal(decisions.filter(result => !result.allowed).length, 2);
+    assert.ok(decisions.every(result => result.identityVerified));
+  } finally {
+    await prisma.rateLimitBucket.deleteMany({ where: { key: ipKey } });
+    if (previousProxy === undefined) delete process.env.TRUSTED_PROXY_HEADER_SECRET;
+    else process.env.TRUSTED_PROXY_HEADER_SECRET = previousProxy;
+    if (previousAuth === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousAuth;
+  }
+});
+
+test("a signed credentials callback marker can be consumed once and cannot be replayed", async () => {
+  const previousAuth = process.env.AUTH_SECRET;
+  process.env.AUTH_SECRET = "integration-auth-secret-long-enough-for-rate-limit-tests";
+  const email = `marker-${randomUUID()}@example.invalid`;
+  const token = createLoginRateLimitPass(email);
+  const request = new Request("https://example.invalid/api/auth/callback/credentials", {
+    headers: { "x-internal-login-rate-limit-pass": token }
+  });
+  const key = loginRateLimitPassKey(request, email);
+  try {
+    assert.ok(key);
+    assert.equal(await consumeLoginRateLimitPass(request, email), true);
+    assert.equal(await consumeLoginRateLimitPass(request, email), false);
+    assert.equal(await consumeLoginRateLimitPass(request, "other@example.invalid"), null);
+  } finally {
+    if (key) await prisma.rateLimitBucket.deleteMany({ where: { key } });
+    if (previousAuth === undefined) delete process.env.AUTH_SECRET;
+    else process.env.AUTH_SECRET = previousAuth;
+  }
+});
