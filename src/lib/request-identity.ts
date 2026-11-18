@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
 
 /**
@@ -35,28 +35,41 @@ export function requestAccountRateLimitKey(scope: string, identifier: string) {
   return hmacKey(`${scope}:account:${normalized}`);
 }
 
-/** Short-lived proof that the callback route already consumed both login buckets. */
+/**
+ * Signed marker proving that the callback route already consumed both login
+ * buckets. A random nonce makes each marker distinct; its database consumption
+ * is one-time, so replay cannot skip the account/IP counters.
+ */
 export function createLoginRateLimitPass(identifier: string) {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   const issuedAt = Date.now().toString();
+  const nonce = randomUUID();
   const normalized = identifier.trim().toLowerCase();
-  const signature = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${normalized}`).digest("hex");
-  return `${issuedAt}.${signature}`;
+  const signature = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${nonce}:${normalized}`).digest("hex");
+  return `${issuedAt}.${nonce}.${signature}`;
 }
 
-export function hasValidLoginRateLimitPass(request: Request, identifier: string) {
+/** Returns a one-time database key for a valid marker, or null for invalid input. */
+export function loginRateLimitPassKey(request: Request, identifier: string) {
   const token = request.headers.get("x-internal-login-rate-limit-pass");
   const secret = process.env.AUTH_SECRET;
-  if (!token || !secret || secret.length < 32) return false;
-  const [issuedAt, signature, extra] = token.split(".");
-  if (!issuedAt || !signature || extra || !/^\d+$/.test(issuedAt)) return false;
+  if (!token || !secret || secret.length < 32) return null;
+  const [issuedAt, nonce, signature, extra] = token.split(".");
+  if (!issuedAt || !nonce || !signature || extra || !/^\d+$/.test(issuedAt) || !/^[0-9a-f-]{36}$/i.test(nonce)) return null;
   const timestamp = Number(issuedAt);
-  if (!Number.isSafeInteger(timestamp) || Date.now() - timestamp < 0 || Date.now() - timestamp > 30_000) return false;
-  const expected = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${identifier.trim().toLowerCase()}`).digest("hex");
+  if (!Number.isSafeInteger(timestamp) || Date.now() - timestamp < 0 || Date.now() - timestamp > 30_000) return null;
+  const normalized = identifier.trim().toLowerCase();
+  const expected = createHmac("sha256", secret).update(`login-pass:${issuedAt}:${nonce}:${normalized}`).digest("hex");
   const actualBytes = Buffer.from(signature, "hex");
   const expectedBytes = Buffer.from(expected, "hex");
-  return actualBytes.length === expectedBytes.length && timingSafeEqual(actualBytes, expectedBytes);
+  if (actualBytes.length !== expectedBytes.length || !timingSafeEqual(actualBytes, expectedBytes)) return null;
+  return hmacKey(`login-pass-once:${issuedAt}:${nonce}:${normalized}`);
+}
+
+/** Compatibility predicate for unit tests and callers that only need validation. */
+export function hasValidLoginRateLimitPass(request: Request, identifier: string) {
+  return loginRateLimitPassKey(request, identifier) !== null;
 }
 
 /** Backwards-compatible combined key for existing verification/resend routes. */
