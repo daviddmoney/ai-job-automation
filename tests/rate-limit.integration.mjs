@@ -4,11 +4,16 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import {
   consumeIndependentRateLimits,
-  consumeRateLimitWithInfo
+  consumeRateLimitWithInfo,
+  consumeCredentialsLoginEndpointLimit,
+  consumeOAuthInitiationEndpointLimit,
+  consumeLoginRateLimitPass
 } from "../src/lib/rate-limit.ts";
 import {
   requestAccountRateLimitKey,
-  requestIpRateLimitKey
+  requestIpRateLimitKey,
+  loginRateLimitPassKey,
+  createLoginRateLimitPass
 } from "../src/lib/request-identity.ts";
 
 const prisma = new PrismaClient();
