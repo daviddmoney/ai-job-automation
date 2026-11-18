@@ -2,15 +2,16 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeEmailVerificationCode } from "../src/lib/email-verification.ts";
+import { consumeEmailVerificationCode, createEmailVerificationExpiry } from "../src/lib/email-verification.ts";
 
 const prisma = new PrismaClient();
 after(async () => { await prisma.$disconnect(); });
 
-async function withUser(run, { digest = "correct-digest", expiresAt = new Date(Date.now() + 10 * 60_000), attempts = 0 } = {}) {
+async function withUser(run, { digest = "correct-digest", expiresAt, attempts = 0 } = {}) {
   const email = `otp-regression-${randomUUID()}@example.invalid`;
+  const issuedExpiry = expiresAt ?? await createEmailVerificationExpiry(prisma);
   const user = await prisma.user.create({ data: {
-    email, emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt,
+    email, emailVerificationCodeHash: digest, emailVerificationExpiresAt: issuedExpiry,
     emailVerificationAttempts: attempts
   }});
   try { await run({ email, user, consume: (code = digest) => consumeEmailVerificationCode(prisma, email, code) }); }
@@ -18,11 +19,15 @@ async function withUser(run, { digest = "correct-digest", expiresAt = new Date(D
 }
 async function reload(id) { return prisma.user.findUniqueOrThrow({ where: { id } }); }
 
-test("1. valid, unexpired OTP verifies and is consumed", async () => withUser(async ({ user, consume }) => {
-  assert.equal(await consume(), true);
+test("1. PostgreSQL issues a ten-minute OTP expiry which can be consumed before expiry", async () => withUser(async ({ user, consume }) => {
+  const [clock] = await prisma.$queryRaw`SELECT clock_timestamp() AS now`;
   const row = await reload(user.id);
-  assert.ok(row.emailVerified); assert.equal(row.emailVerificationCodeHash, null);
-  assert.equal(row.emailVerificationExpiresAt, null); assert.equal(row.emailVerificationAttempts, 0);
+  assert.ok(row.emailVerificationExpiresAt > clock.now);
+  assert.ok(row.emailVerificationExpiresAt <= new Date(clock.now.getTime() + 10 * 60_000));
+  assert.equal(await consume(), true);
+  const consumed = await reload(user.id);
+  assert.ok(consumed.emailVerified); assert.equal(consumed.emailVerificationCodeHash, null);
+  assert.equal(consumed.emailVerificationExpiresAt, null); assert.equal(consumed.emailVerificationAttempts, 0);
 }));
 test("2. expired OTP is rejected using PostgreSQL live time", async () => withUser(async ({ user, consume }) => {
   assert.equal(await consume(), false);
@@ -54,12 +59,16 @@ test("7. concurrent incorrect submissions cannot bypass the five-attempt limit",
   assert.ok(results.every(result => result === false));
   assert.equal((await reload(user.id)).emailVerificationAttempts, 5);
 }));
-test("8. resending replaces the stored digest and invalidates the previous OTP", async () => withUser(async ({ user, consume }) => {
+test("8. resend issues a fresh PostgreSQL-clock expiry and invalidates the old OTP", async () => withUser(async ({ user, email, consume }) => {
+  const newExpiry = await createEmailVerificationExpiry(prisma);
   await prisma.user.update({ where: { id: user.id }, data: {
     emailVerificationCodeHash: "new-digest",
-    emailVerificationExpiresAt: new Date(Date.now() + 10 * 60_000),
+    emailVerificationExpiresAt: newExpiry,
     emailVerificationAttempts: 0
   }});
+  const [clock] = await prisma.$queryRaw`SELECT clock_timestamp() AS now`;
+  assert.ok(newExpiry > clock.now);
+  assert.ok(newExpiry <= new Date(clock.now.getTime() + 10 * 60_000));
   assert.equal(await consume("old-digest"), false);
   assert.equal(await consume("new-digest"), true);
   assert.ok((await reload(user.id)).emailVerified);
