@@ -17,7 +17,7 @@ class MemoryDatabase {
     const email = values[0];
     const digest = values[1];
     assert.equal(email, s.email);
-    if (sql.includes('SET\n      "emailVerified"')) {
+    if (sql.includes('SET\\n      "emailVerified" = verification_time.now')) {
       if (s.emailVerified !== null || s.emailVerificationCodeHash !== digest
         || !(s.emailVerificationExpiresAt instanceof Date) || s.emailVerificationExpiresAt <= new Date()
         || s.emailVerificationAttempts >= 5) return [];
