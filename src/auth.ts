@@ -67,7 +67,7 @@ const providers = [
         } else if (user.twoFactorMethod === "EMAIL") {
           if (!/^\d{6}$/.test(code)) return null;
           try {
-            if (!(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest(code)))) return null;
+            if (!(await consumeEmailSecondFactorCode(prisma, user.id, emailSecondFactorDigest(code, user.id)))) return null;
           } catch { return null; }
         }
       }

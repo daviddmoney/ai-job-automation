@@ -1,9 +1,9 @@
-import { createHash, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { hash } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationCode } from "@/lib/email";
-import { consumeEmailVerificationCode, createEmailVerificationExpiry } from "@/lib/email-verification";
+import { consumeEmailVerificationCode, createEmailVerificationExpiry, emailVerificationCodeDigest } from "@/lib/email-verification";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -14,11 +14,6 @@ const registrationSchema = z.object({
     .regex(/[0-9]/, "Password must contain a number")
 });
 
-function codeDigest(code: string) {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
-  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
-}
 
 export async function registerAccount(input: unknown) {
   const parsed = registrationSchema.safeParse(input);
@@ -29,19 +24,52 @@ export async function registerAccount(input: unknown) {
   if (existing?.emailVerified) return { ok: false as const, status: 409, message: "An account with this email already exists." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const digest = codeDigest(code);
+  const digest = emailVerificationCodeDigest(code, email);
   const passwordHash = await hash(parsed.data.password, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
 
-  const user = await prisma.$transaction(async (transaction) => {
+  const issuedUser = await prisma.$transaction(async (transaction) => {
     const expiresAt = await createEmailVerificationExpiry(transaction);
-    return existing
-      ? transaction.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
-      : transaction.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+
+    if (existing) {
+      const issued = await transaction.user.updateMany({
+        where: { id: existing.id, emailVerified: null },
+        data: {
+          name: parsed.data.name,
+          passwordHash,
+          emailVerificationCodeHash: digest,
+          emailVerificationExpiresAt: expiresAt,
+          emailVerificationAttempts: 0
+        }
+      });
+      return issued.count === 1 ? { id: existing.id } : null;
+    }
+
+    const created = await transaction.user.create({
+      data: {
+        name: parsed.data.name,
+        email,
+        passwordHash,
+        role: "USER",
+        emailVerificationCodeHash: digest,
+        emailVerificationExpiresAt: expiresAt,
+        emailVerificationAttempts: 0
+      },
+      select: { id: true }
+    });
+    return created;
   });
 
+  if (!issuedUser) {
+    return { ok: false as const, status: 409, message: "An account with this email already exists." };
+  }
+
   try {
-    await sendVerificationCode(user.email, code);
+    await sendVerificationCode(email, code);
   } catch {
+    await prisma.user.updateMany({
+      where: { id: issuedUser.id, emailVerified: null, emailVerificationCodeHash: digest },
+      data: { emailVerificationCodeHash: null, emailVerificationExpiresAt: null }
+    });
     return { ok: false as const, status: 503, message: "Your account details were saved, but email delivery is not configured or is temporarily unavailable. Please contact the site administrator before trying again." };
   }
   return { ok: true as const, message: "Verification code sent. Check your email; the code expires in 10 minutes." };
@@ -58,7 +86,7 @@ export async function verifyAccountEmail(input: unknown) {
   }
 
   const email = parsed.data.email.toLowerCase();
-  const suppliedDigest = codeDigest(parsed.data.code);
+  const suppliedDigest = emailVerificationCodeDigest(parsed.data.code, email);
   const verified = await consumeEmailVerificationCode(prisma, email, suppliedDigest);
 
   return verified
@@ -75,7 +103,7 @@ export async function resendAccountVerification(input: unknown) {
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const digest = codeDigest(code);
+  const digest = emailVerificationCodeDigest(code, email);
 
   const issued = await prisma.$transaction(async (transaction) => {
     const expiresAt = await createEmailVerificationExpiry(transaction);
@@ -94,6 +122,10 @@ export async function resendAccountVerification(input: unknown) {
   try {
     await sendVerificationCode(user.email, code);
   } catch {
+    await prisma.user.updateMany({
+      where: { id: user.id, emailVerified: null, emailVerificationCodeHash: digest },
+      data: { emailVerificationCodeHash: null, emailVerificationExpiresAt: null }
+    });
     return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." };
   }
 

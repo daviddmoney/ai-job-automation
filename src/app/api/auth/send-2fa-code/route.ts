@@ -31,8 +31,16 @@ export async function POST(request: NextRequest) {
     }
   } catch { return NextResponse.json({ message: "Sign-in code delivery is temporarily unavailable." }, { status: 503 }); }
   const code = newEmailOtp();
-  const issued = await issueEmailTwoFactorCode(prisma, user.id, emailSecondFactorDigest(code));
+  const issued = await issueEmailTwoFactorCode(prisma, user.id, emailSecondFactorDigest(code, user.id));
   if (!issued) return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 });
-  try { await sendSecondFactorCode(user.email, code); return NextResponse.json({ message: "A sign-in code has been sent to your verified email." }); }
-  catch { return NextResponse.json({ message: "Email delivery is temporarily unavailable." }, { status: 503 }); }
+  try {
+    await sendSecondFactorCode(user.email, code);
+    return NextResponse.json({ message: "A sign-in code has been sent to your verified email." });
+  } catch {
+    await prisma.user.updateMany({
+      where: { id: user.id, twoFactorEmailCodeHash: emailSecondFactorDigest(code, user.id) },
+      data: { twoFactorEmailCodeHash: null, twoFactorEmailCodeExpiresAt: null }
+    });
+    return NextResponse.json({ message: "Email delivery is temporarily unavailable." }, { status: 503 });
+  }
 }

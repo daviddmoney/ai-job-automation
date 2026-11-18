@@ -10,14 +10,14 @@ type VerificationDatabase = {
 /**
  * OTPs have only one million possible values, so their digest must be keyed.
  */
-export function emailVerificationCodeDigest(code: string): string {
+export function emailVerificationCodeDigest(code: string, email: string): string {
   const secret = process.env.AUTH_SECRET;
 
   if (!secret || secret.length < 32) {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
 
-  return createHmac("sha256", secret).update(code, "utf8").digest("hex");
+  return createHmac("sha256", secret).update(`email-verification:v1:${email.trim().toLowerCase()}:${code}`, "utf8").digest("hex");
 }
 
 /** Generate the ten-minute OTP expiry using PostgreSQL's live clock. */
