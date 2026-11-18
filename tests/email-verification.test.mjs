@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consumeEmailVerificationCode } from "../src/lib/email-verification.ts";
+import { consumeEmailVerificationCode, createEmailVerificationExpiry } from "../src/lib/email-verification.ts";
 
 class MemoryDatabase {
   constructor({ digest = "correct", expiresAt = new Date(Date.now() + 60_000), attempts = 0 } = {}) {
@@ -12,6 +12,10 @@ class MemoryDatabase {
     const sql = strings.join("?");
     this.queries.push(sql);
     if (this.failOnCall === this.calls) throw new Error("simulated database failure");
+    if (sql.includes("INTERVAL '10 minutes'")) {
+      assert.match(sql, /clock_timestamp\(\)/);
+      return [{ expiresAt: new Date(Date.now() + 10 * 60_000) }];
+    }
     assert.match(sql, /clock_timestamp\(\)/, "expiry and verification timestamps must use PostgreSQL's live clock");
     const s = this.state;
     const email = values[0];
@@ -37,6 +41,12 @@ class MemoryDatabase {
 }
 const consume = (database, digest = "correct") => consumeEmailVerificationCode(database, "otp@example.invalid", digest);
 
+test("PostgreSQL generates the ten-minute expiry expression", async () => {
+  const database = new MemoryDatabase();
+  const expiresAt = await createEmailVerificationExpiry(database);
+  assert.ok(expiresAt instanceof Date);
+  assert.match(database.queries[0], /clock_timestamp\(\) \+ INTERVAL '10 minutes'/);
+});
 test("1. valid, unexpired OTP verifies and is consumed using the database clock", async () => {
   const database = new MemoryDatabase();
   assert.equal(await consume(database), true); assert.ok(database.state.emailVerified instanceof Date);
