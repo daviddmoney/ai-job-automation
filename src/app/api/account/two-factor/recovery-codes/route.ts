@@ -50,6 +50,15 @@ export async function POST(request: NextRequest) {
       data: { recoveryCodeHashes: hashes, twoFactorLastTotpCounter: BigInt(counter) }
     });
     if (updated.count !== 1) return NextResponse.json({ message: "This authenticator code has already been used. Wait for a new code and try again." }, { status: 409 });
+    await prisma.auditEvent.create({
+      data: {
+        userId: user.id,
+        actorEmail: user.email ?? undefined,
+        action: "TWO_FACTOR_RECOVERY_CODES_ROTATED",
+        resource: "User",
+        resourceId: user.id
+      }
+    });
     return NextResponse.json({ message: "Save these recovery codes securely. Each code can be used once; they will not be shown again.", recoveryCodes: codes });
   } catch {
     return NextResponse.json({ message: "Unable to regenerate recovery codes." }, { status: 500 });
