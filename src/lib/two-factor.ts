@@ -124,6 +124,7 @@ export async function consumeEmailSecondFactorCode(
       "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
     WHERE
       "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
       AND ((${activate} = TRUE AND "twoFactorEnabled" = FALSE)
         OR (${activate} = FALSE AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL'))
       AND "twoFactorEmailCodeHash" IS NOT NULL
