@@ -5,7 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
+import { consumeEmailTwoFactorCode, decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
 import { consumeCredentialsLoginEndpointLimit, consumeLoginRateLimitPass } from "@/lib/rate-limit";
 
 class LoginRateLimitError extends CredentialsSignin { code = "rate_limited"; }
@@ -65,13 +65,9 @@ const providers = [
             }
           } catch { return null; }
         } else if (user.twoFactorMethod === "EMAIL") {
-          if (!user.twoFactorEmailCodeHash || !user.twoFactorEmailCodeExpiresAt || user.twoFactorEmailCodeExpiresAt < new Date() || user.twoFactorEmailCodeAttempts >= 5) return null;
-          if (otpDigest(code) !== user.twoFactorEmailCodeHash) {
-            await prisma.user.update({ where: { id: user.id }, data: { twoFactorEmailCodeAttempts: { increment: 1 } } });
-            return null;
-          }
-          const consumed = await prisma.user.updateMany({ where: { id: user.id, twoFactorEmailCodeHash: user.twoFactorEmailCodeHash, twoFactorEmailCodeExpiresAt: { gt: new Date() }, twoFactorEmailCodeAttempts: { lt: 5 } }, data: { twoFactorEmailCodeHash: null, twoFactorEmailCodeExpiresAt: null, twoFactorEmailCodeAttempts: 0 } });
-          if (consumed.count !== 1) return null;
+          const digest = otpDigest(code);
+          if (!(await consumeEmailTwoFactorCode(prisma, user.id, digest))) return null;
+
         }
       }
       return { id: user.id, name: user.name, email: user.email, role: user.role };

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { newEmailOtp, otpDigest } from "@/lib/two-factor";
+import { issueEmailTwoFactorCode, newEmailOtp, otpDigest } from "@/lib/two-factor";
 import { sendSecondFactorCode } from "@/lib/email";
 import { readLimitedJson } from "@/lib/request-body";
 import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
   try { if (!(await verify(user.passwordHash, parsed.data.password))) return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 }); }
   catch { return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 }); }
   const code = newEmailOtp();
-  await prisma.user.update({ where: { id: user.id }, data: { twoFactorEmailCodeHash: otpDigest(code), twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000), twoFactorEmailCodeAttempts: 0 } });
+  const issued = await issueEmailTwoFactorCode(prisma, user.id, otpDigest(code));
+  if (!issued) return NextResponse.json({ message: "Unable to send a sign-in code for this account." }, { status: 400 });
   try { await sendSecondFactorCode(user.email, code); return NextResponse.json({ message: "A sign-in code has been sent to your verified email." }); }
   catch { return NextResponse.json({ message: "Email delivery is temporarily unavailable." }, { status: 503 }); }
 }
