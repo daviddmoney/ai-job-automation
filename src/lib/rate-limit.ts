@@ -1,5 +1,5 @@
 import { prisma } from "./prisma.ts";
-import { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "./request-identity.ts";
+import { loginRateLimitPassKey, requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey } from "./request-identity.ts";
 
 export { requestAccountRateLimitKey, requestIpRateLimitKey, requestRateLimitKey, verifiedClientIp } from "./request-identity.ts";
 
@@ -70,7 +70,6 @@ export async function consumeIndependentRateLimits(
 
 /** Consume a valid signed callback marker exactly once. Null means invalid/missing. */
 export async function consumeLoginRateLimitPass(request: Request, identifier: string): Promise<boolean | null> {
-  const { loginRateLimitPassKey } = await import("./request-identity.ts");
   const key = loginRateLimitPassKey(request, identifier);
   if (!key) return null;
   return (await consumeRateLimitWithInfo(key, 1, 30)).allowed;
