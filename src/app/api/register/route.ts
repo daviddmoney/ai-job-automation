@@ -34,17 +34,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await registerAccount(parsedBody.data);
-    if (!result.ok && result.status === 400) return NextResponse.json({ message: result.message }, { status: 400 });
-    // Do not reveal whether the email exists or whether a message was sent.
+    if (!result.ok && result.status === 400) {
+      return NextResponse.json({ message: result.message }, { status: 400 });
+    }
+    // An existing verified account remains indistinguishable from a new one.
+    // Infrastructure or email-delivery failures are different: return a generic
+    // outage response so the user is not falsely told that processing succeeded.
+    if (!result.ok && result.status === 503) {
+      return NextResponse.json(
+        { message: "Registration is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { message: "If the details can be used to create or verify an account, instructions will be sent to that email address." },
       { status: 202 }
     );
   } catch {
-    // Keep the public response indistinguishable from an existing-account response.
     return NextResponse.json(
-      { message: "If the details can be used to create or verify an account, instructions will be sent to that email address." },
-      { status: 202 }
+      { message: "Registration is temporarily unavailable. Please try again later." },
+      { status: 503 }
     );
   }
 }
