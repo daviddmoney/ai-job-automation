@@ -109,8 +109,30 @@ jobs:
                   data = json.loads(response.read().decode("utf-8"))
           except urllib.error.HTTPError as exc:
               detail = exc.read(2000).decode("utf-8", errors="replace")
-              raise SystemExit(f"DeepSeek API returned HTTP {exc.code}: {detail}")
+              lowered = detail.lower()
+              failure_file = temp / "deepseek-error.txt"
+              if exc.code == 402 or "insufficient_balance" in lowered or "insufficient balance" in lowered:
+                  failure_file.write_text(
+                      "DeepSeek second-opinion review skipped: the configured API account returned HTTP 402 Insufficient Balance. "
+                      "The account owner must add API credits or replace DEEPSEEK_API_KEY with a funded key. "
+                      "This optional review is not a passed review.",
+                      encoding="utf-8"
+                  )
+                  print("::warning::DeepSeek API account has insufficient balance; add credits or configure a funded key.")
+                  raise SystemExit("DEEPSEEK_INSUFFICIENT_BALANCE")
+              failure_file.write_text(
+                  f"DeepSeek second-opinion review unavailable: provider returned HTTP {exc.code}. "
+                  "Inspect the redacted workflow logs; this optional review is not a passed review.",
+                  encoding="utf-8"
+              )
+              raise SystemExit(f"DeepSeek API returned HTTP {exc.code}.")
+
           except Exception as exc:
+              (temp / "deepseek-error.txt").write_text(
+                  "DeepSeek second-opinion review unavailable: request failed with " + type(exc).__name__ + ". "
+                  "This optional review is not a passed review.",
+                  encoding="utf-8"
+              )
               raise SystemExit("DeepSeek review request failed: " + type(exc).__name__)
           choices = data.get("choices") or []
           content = choices[0].get("message", {}).get("content") if choices else None
@@ -132,5 +154,12 @@ jobs:
         if: steps.config.outputs.enabled != 'true' || steps.review.outcome == 'failure'
         shell: bash
         run: |
-          echo "::warning::DeepSeek second-opinion review was unavailable. This optional service does not block CI or replace required security checks."
-          echo "DeepSeek second-opinion review was unavailable (missing key, provider balance, or API issue). Required CI and security scans remain authoritative." >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/deepseek-error.txt" ]; then
+            message="$(cat "$RUNNER_TEMP/deepseek-error.txt")"
+          elif [ "${{ steps.config.outputs.enabled }}" != "true" ]; then
+            message="DeepSeek second-opinion review skipped because it is disabled or DEEPSEEK_API_KEY is not configured. This is not a passed review."
+          else
+            message="DeepSeek second-opinion review unavailable due to a provider or API error. This is not a passed review."
+          fi
+          echo "::warning::$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
