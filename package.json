@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "promote-staff": "node scripts/promote-staff.mjs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "test:integration": "node --experimental-strip-types --test tests/*.integration.mjs"
+    "test:integration": "node --experimental-strip-types --test tests/*.integration.mjs",
+    "rate-limit:cleanup": "node scripts/cleanup-rate-limit-buckets.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
