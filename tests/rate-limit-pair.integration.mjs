@@ -2,7 +2,7 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeRateLimitPair } from "../src/lib/rate-limit.ts";
+import { consumeRateLimit, consumeRateLimitPair } from "../src/lib/rate-limit.ts";
 
 const prisma = new PrismaClient();
 after(async () => { await prisma.$disconnect(); });
@@ -46,5 +46,23 @@ test("account limits remain independent while requests share an IP bucket", asyn
     assert.equal(ipRow.count, 16);
   } finally {
     await prisma.rateLimitBucket.deleteMany({ where: { key: { in: [ipKey, accountA, accountB] } } });
+  }
+});
+
+test("rate-limit expiry is derived from PostgreSQL time, not the application clock", async () => {
+  const key = `test-db-clock-${randomUUID()}`;
+  const originalDateNow = Date.now;
+  try {
+    Date.now = () => 0;
+    await consumeRateLimit(key, 1, 120);
+    const [row] = await prisma.$queryRaw`
+      SELECT "resetAt" FROM "RateLimitBucket" WHERE "key" = ${key}
+    `;
+    const [clock] = await prisma.$queryRaw`SELECT clock_timestamp() AS now`;
+    assert.ok(row.resetAt > clock.now, "reset must be in the future according to PostgreSQL");
+    assert.ok(row.resetAt <= new Date(clock.now.getTime() + 120_000), "reset must use the configured database-clock window");
+  } finally {
+    Date.now = originalDateNow;
+    await prisma.rateLimitBucket.deleteMany({ where: { key } });
   }
 });
