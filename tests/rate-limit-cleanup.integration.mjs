@@ -12,13 +12,15 @@ test("rate-limit buckets are cleaned and denials are audited once per window", {
   const prisma = new PrismaClient();
   const expiredKey = `expired-${randomUUID()}`;
   const activeKey = `active-${randomUUID()}`;
+  const cleanupKey = `cleanup-${randomUUID()}`;
   const denialKey = `denial-${randomUUID()}`;
   const staleEventId = `stale-${randomUUID()}`;
 
   try {
     await prisma.rateLimitBucket.createMany({ data: [
       { key: expiredKey, count: 4, resetAt: new Date(Date.now() - 2 * 60 * 60 * 1000) },
-      { key: activeKey, count: 1, resetAt: new Date(Date.now() + 60 * 60 * 1000) }
+      { key: activeKey, count: 1, resetAt: new Date(Date.now() + 60 * 60 * 1000) },
+      { key: cleanupKey, count: 4, resetAt: new Date(Date.now() - 2 * 60 * 60 * 1000) }
     ] });
     await prisma.auditEvent.create({
       data: {
@@ -30,8 +32,9 @@ test("rate-limit buckets are cleaned and denials are audited once per window", {
       }
     });
 
-    await prisma.rateLimitBucket.create({
-      data: { key: expiredKey, count: 99, resetAt: new Date(Date.now() - 5000) }
+    await prisma.rateLimitBucket.update({
+      where: { key: expiredKey },
+      data: { count: 99, resetAt: new Date(Date.now() - 5000) }
     });
     assert.equal(await consumeRateLimit(expiredKey, 2, 60), true);
     const resetBucket = await prisma.rateLimitBucket.findUniqueOrThrow({ where: { key: expiredKey } });
@@ -49,11 +52,12 @@ test("rate-limit buckets are cleaned and denials are audited once per window", {
     const cleaned = await cleanupExpiredRateLimitBuckets(500);
     assert.ok(cleaned.deletedBuckets >= 1);
     assert.ok(cleaned.deletedAuditEvents >= 1);
-    assert.equal(await prisma.rateLimitBucket.findUnique({ where: { key: expiredKey } }), null);
+    assert.ok(await prisma.rateLimitBucket.findUnique({ where: { key: expiredKey } }));
+    assert.equal(await prisma.rateLimitBucket.findUnique({ where: { key: cleanupKey } }), null);
     assert.ok(await prisma.rateLimitBucket.findUnique({ where: { key: activeKey } }));
     assert.equal(await prisma.auditEvent.findUnique({ where: { id: staleEventId } }), null);
   } finally {
-    await prisma.rateLimitBucket.deleteMany({ where: { key: { in: [expiredKey, activeKey, denialKey] } } });
+    await prisma.rateLimitBucket.deleteMany({ where: { key: { in: [expiredKey, activeKey, cleanupKey, denialKey] } } });
     await prisma.auditEvent.deleteMany({ where: { resourceId: { in: [denialKey, staleEventId] } } });
     await prisma.$disconnect();
   }
