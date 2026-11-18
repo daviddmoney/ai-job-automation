@@ -51,6 +51,9 @@ export async function POST(request: NextRequest) {
           twoFactorEnabled: true,
           twoFactorMethod: "TOTP",
           twoFactorLastTotpCounter: BigInt(counter),
+          twoFactorEmailCodeHash: null,
+          twoFactorEmailCodeExpiresAt: null,
+          twoFactorEmailCodeAttempts: 0,
           recoveryCodeHashes: [],
           sessionVersion: { increment: 1 }
         }
