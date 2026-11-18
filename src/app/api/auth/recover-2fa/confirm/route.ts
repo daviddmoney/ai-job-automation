@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const parsed = z.object({
     email: z.string().email().max(254),
     password: z.string().min(1).max(256),
-    code: z.string().regex(/^\\d{6}$/)
+    code: z.string().regex(/^\d{6}$/)
   }).safeParse(body.data);
   if (!parsed.success) return NextResponse.json({ message: "The recovery details are invalid or expired." }, { status: 400 });
 

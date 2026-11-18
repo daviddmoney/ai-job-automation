@@ -19,7 +19,8 @@ export default function TwoFactorSettingsPage() {
   async function confirmTotp() { await post("/api/security/2fa/totp/confirm", { code, password }); }
   async function startEmail() { await post("/api/security/2fa/email/start", { password }); }
   async function confirmEmail() { await post("/api/security/2fa/email/confirm", { code, password }); }
-  async function sendDisableEmailCode() { await post("/api/account/two-factor/disable-code", { password }); }\n  async function disableTwoFactor() { await post("/api/account/two-factor/disable", { password, code }); setCode(""); setPassword(""); setRecoveryCodes([]); }
+  async function sendDisableEmailCode() { await post("/api/account/two-factor/disable-code", { password }); }
+  async function disableTwoFactor() { await post("/api/account/two-factor/disable", { password, code }); setCode(""); setPassword(""); setRecoveryCodes([]); }
   async function generateRecoveryCodes() { const data = await post("/api/account/two-factor/recovery-codes", { password, code }); if (Array.isArray(data?.recoveryCodes)) { setRecoveryCodes(data.recoveryCodes); setPassword(""); setCode(""); } }
   return <main className="form-page" style={{maxWidth:680}}> 
     <a href="/dashboard" className="action-link">← Back to your workspace</a>
