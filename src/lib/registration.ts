@@ -96,7 +96,7 @@ export async function resendAccountVerification(input: unknown) {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-  const codeHash = emailVerificationCodeDigest(code);
+  const codeHash = emailVerificationCodeDigest(code, email);
   const issued = await prisma.user.updateMany({
     where: { id: user.id, emailVerified: null },
     data: {
