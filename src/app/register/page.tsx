@@ -9,7 +9,8 @@ export default function RegisterPage() {
     setBusy(true); setMessage("");
     try {
       const response = await fetch("/api/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: formData.get("name"), email: formData.get("email"), password: formData.get("password") }) });
-      const data = await response.json(); setMessage(data.message || "Request completed.");
+      const data = await response.json();
+      setMessage(data.message || (response.ok ? "Request received. Follow the next step shown on this page." : "We could not process the request. Please try again later."));
     } catch { setMessage("Unable to reach the server. Please try again."); }
     finally { setBusy(false); }
   }
@@ -23,7 +24,10 @@ export default function RegisterPage() {
       <label style={{ display: "grid", gap: 6 }}>Password<input name="password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" style={field} /><small style={{ color: "#697589" }}>At least 12 characters, including uppercase, lowercase, and a number.</small></label>
       <button disabled={busy} type="submit" style={button}>{busy ? "Creating account…" : "Create account"}</button>
     </form>
-    {message && <p role="status" style={{ marginTop: 18, lineHeight: 1.6 }}>{message}</p>}
+    {message && <section role="status" aria-live="polite" style={{ marginTop: 18, lineHeight: 1.6 }}>
+      <p>{message}</p>
+      <p style={{ marginTop: 8 }}>For security, we do not disclose whether an email address already has an account. If you need a verification code or did not receive one, <a href="/verify-email" style={{ color: "#3657a7", textDecoration: "underline" }}>open email verification</a> to request it.</p>
+    </section>}
     <p style={{ marginTop: 20 }}><a href="/verify-email" style={{ color: "#3657a7" }}>Already registered? Verify your email</a></p>
   </main>;
 }
