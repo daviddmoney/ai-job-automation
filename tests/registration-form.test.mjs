@@ -24,3 +24,19 @@ test("registration UI respects rate-limit retry guidance without changing server
   assert.match(page, /credentials: "same-origin"/);
   assert.match(page, /cache: "no-store"/);
 });
+
+const verifyPage = await readFile(new URL("../src/app/verify-email/page.tsx", import.meta.url), "utf8");
+
+test("email verification and resend forms do not use resetting form actions", () => {
+  assert.match(verifyPage, /<form\\s+onSubmit=\\{handleVerify\\}/);
+  assert.match(verifyPage, /<form\\s+onSubmit=\\{handleResend\\}/);
+  assert.doesNotMatch(verifyPage, /<form\\s+action=/);
+  assert.match(verifyPage, /event\\.preventDefault\\(\\)/);
+});
+
+test("email verification UI distinguishes API failures and exposes accessible feedback", () => {
+  assert.match(verifyPage, /if \\(!response\\.ok\\)/);
+  assert.match(verifyPage, /role=\\{feedback\\.kind === "error" \\? "alert" : "status"\\}/);
+  assert.match(verifyPage, /response\\.status === 429/);
+  assert.doesNotMatch(verifyPage, /form\\.reset\\(/);
+});
