@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeEmailSecondFactorCode, emailSecondFactorDigest } from "../src/lib/two-factor.ts";
+import { consumeEmailSecondFactorCode, consumeEmailSecondFactorRecoveryCode, emailSecondFactorDigest } from "../src/lib/two-factor.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.AUTH_SECRET;
@@ -87,6 +87,34 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
     const activated = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(activated.twoFactorEnabled, true);
     assert.equal(activated.twoFactorMethod, "EMAIL");
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        twoFactorEnabled: true,
+        twoFactorMethod: "TOTP",
+        twoFactorSecretCipher: "test-cipher",
+        twoFactorPendingSecretCipher: "test-pending-cipher",
+        recoveryCodeHashes: ["previous-recovery-hash"],
+        twoFactorLastTotpCounter: BigInt(123),
+        twoFactorEmailCodeHash: digestFor("777777", user.id, "recovery"),
+        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        twoFactorEmailCodeAttempts: 0
+      }
+    });
+    const recoveryDigest = digestFor("777777", user.id, "recovery");
+    const recoveryResults = await Promise.all(Array.from({ length: 12 }, () =>
+      consumeEmailSecondFactorRecoveryCode(prisma, user.id, recoveryDigest)));
+    assert.equal(recoveryResults.filter(Boolean).length, 1);
+    const recovered = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    assert.equal(recovered.twoFactorEnabled, false);
+    assert.equal(recovered.twoFactorMethod, null);
+    assert.equal(recovered.twoFactorSecretCipher, null);
+    assert.equal(recovered.twoFactorPendingSecretCipher, null);
+    assert.deepEqual(recovered.recoveryCodeHashes, []);
+    assert.equal(recovered.twoFactorEmailCodeHash, null);
+    assert.equal(recovered.twoFactorLastTotpCounter, null);
+    assert.equal(recovered.sessionVersion, 2);
   } finally {
     await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();

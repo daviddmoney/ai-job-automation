@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
             twoFactorEmailCodeHash: null,
             twoFactorEmailCodeExpiresAt: null,
             twoFactorEmailCodeAttempts: 0,
+            twoFactorLastTotpCounter: null,
             sessionVersion: { increment: 1 }
           }
         });
@@ -91,7 +92,7 @@ export async function POST(request: NextRequest) {
               twoFactorEmailCodeHash: null,
               twoFactorEmailCodeExpiresAt: null,
               twoFactorEmailCodeAttempts: 0,
-              twoFactorLastTotpCounter: BigInt(counter),
+              twoFactorLastTotpCounter: null,
               sessionVersion: { increment: 1 }
             }
           });
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
               "twoFactorEmailCodeHash" = NULL,
               "twoFactorEmailCodeExpiresAt" = NULL,
               "twoFactorEmailCodeAttempts" = 0,
+              "twoFactorLastTotpCounter" = NULL,
               "sessionVersion" = "sessionVersion" + 1,
               "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
             WHERE "id" = ${user.id}

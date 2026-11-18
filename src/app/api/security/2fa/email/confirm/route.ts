@@ -28,22 +28,26 @@ export async function POST(request: NextRequest) {
   if (!user?.passwordHash || user.twoFactorEnabled) return NextResponse.json({ message: "Start two-factor setup after disabling the current method." }, { status: 409 });
   try {
     if (!(await verify(user.passwordHash, parsed.data.password))) return NextResponse.json({ message: "Verification failed." }, { status: 403 });
-    const activated = await consumeEmailSecondFactorCode(
-      prisma,
-      session.user.id,
-      emailSecondFactorDigest(parsed.data.code, session.user.id, "activation"),
-      true
-    );
-    if (!activated) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
-    await prisma.auditEvent.create({
-      data: {
-        userId: session.user.id,
-        actorEmail: user.email ?? undefined,
-        action: "TWO_FACTOR_ENABLED_EMAIL",
-        resource: "User",
-        resourceId: session.user.id
-      }
+    const activated = await prisma.$transaction(async (tx) => {
+      const accepted = await consumeEmailSecondFactorCode(
+        tx,
+        session.user.id,
+        emailSecondFactorDigest(parsed.data.code, session.user.id, "activation"),
+        true
+      );
+      if (!accepted) return false;
+      await tx.auditEvent.create({
+        data: {
+          userId: session.user.id,
+          actorEmail: user.email ?? undefined,
+          action: "TWO_FACTOR_ENABLED_EMAIL",
+          resource: "User",
+          resourceId: session.user.id
+        }
+      });
+      return true;
     });
+    if (!activated) return NextResponse.json({ message: "The code is invalid or expired." }, { status: 400 });
     return NextResponse.json({ message: "Email two-factor authentication enabled. Sign in again to refresh your security session." });
   } catch {
     return NextResponse.json({ message: "Unable to confirm the code right now." }, { status: 503 });
