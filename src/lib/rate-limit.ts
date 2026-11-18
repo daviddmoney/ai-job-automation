@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/prisma";
-import { requestRateLimitKeys } from "@/lib/request-identity";
+import { prisma } from "./prisma";
+import { requestRateLimitKeys } from "./request-identity";
 
-export { requestRateLimitKey, requestRateLimitKeys, verifiedClientIp } from "@/lib/request-identity";
+export { requestRateLimitKey, requestRateLimitKeys, verifiedClientIp } from "./request-identity";
 
 /** Atomic PostgreSQL counter. The key is a keyed hash, not a raw IP or email address. */
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) {
