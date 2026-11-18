@@ -1,59 +1,62 @@
-type VerificationUserStore = {
-  updateMany(args: {
-    where: {
-      email: string;
-      emailVerified: null;
-      emailVerificationCodeHash: string | { not: string };
-      emailVerificationExpiresAt: { gt: Date };
-      emailVerificationAttempts: { lt: number };
-    };
-    data: {
-      emailVerified?: Date;
-      emailVerificationCodeHash?: null;
-      emailVerificationExpiresAt?: null;
-      emailVerificationAttempts: number | { increment: number };
-    };
-  }): Promise<{ count: number }>;
+type VerificationDatabase = {
+  $queryRaw<T = unknown>(query: TemplateStringsArray, ...values: unknown[]): Promise<T>;
 };
+
+/** Generate the ten-minute OTP expiry using PostgreSQL's live clock. */
+export async function createEmailVerificationExpiry(database: VerificationDatabase) {
+  const rows = await database.$queryRaw<Array<{ expiresAt: Date }>>`
+    SELECT clock_timestamp() + INTERVAL '10 minutes' AS "expiresAt"
+  `;
+  if (rows.length !== 1 || !(rows[0].expiresAt instanceof Date)) {
+    throw new Error("EMAIL_VERIFICATION_EXPIRY_UNAVAILABLE");
+  }
+  return rows[0].expiresAt;
+}
 
 /**
  * Atomically consumes a pending email verification code.
- * Returns true only for the single request that successfully claims it.
+ * PostgreSQL's live clock is authoritative for both expiry and verification time.
  */
 export async function consumeEmailVerificationCode(
-  user: VerificationUserStore,
+  database: VerificationDatabase,
   email: string,
-  suppliedDigest: string,
-  now = new Date()
+  suppliedDigest: string
 ) {
-  const verified = await user.updateMany({
-    where: {
-      email,
-      emailVerified: null,
-      emailVerificationCodeHash: suppliedDigest,
-      emailVerificationExpiresAt: { gt: now },
-      emailVerificationAttempts: { lt: 5 }
-    },
-    data: {
-      emailVerified: now,
-      emailVerificationCodeHash: null,
-      emailVerificationExpiresAt: null,
-      emailVerificationAttempts: 0
-    }
-  });
+  const verified = await database.$queryRaw<Array<{ id: string }>>`
+    WITH verification_time AS (SELECT clock_timestamp() AS now)
+    UPDATE "User" AS account
+    SET
+      "emailVerified" = verification_time.now,
+      "emailVerificationCodeHash" = NULL,
+      "emailVerificationExpiresAt" = NULL,
+      "emailVerificationAttempts" = 0
+    FROM verification_time
+    WHERE
+      account."email" = ${email}
+      AND account."emailVerified" IS NULL
+      AND account."emailVerificationCodeHash" = ${suppliedDigest}
+      AND account."emailVerificationExpiresAt" > verification_time.now
+      AND account."emailVerificationAttempts" < 5
+    RETURNING account."id"
+  `;
 
-  if (verified.count === 1) return true;
+  if (verified.length === 1) return true;
 
-  await user.updateMany({
-    where: {
-      email,
-      emailVerified: null,
-      emailVerificationCodeHash: { not: suppliedDigest },
-      emailVerificationExpiresAt: { gt: now },
-      emailVerificationAttempts: { lt: 5 }
-    },
-    data: { emailVerificationAttempts: { increment: 1 } }
-  });
+  // A wrong code is charged only while the OTP is still live and unconsumed.
+  // The predicate and increment execute atomically in PostgreSQL.
+  await database.$queryRaw<Array<{ id: string }>>`
+    WITH verification_time AS (SELECT clock_timestamp() AS now)
+    UPDATE "User" AS account
+    SET "emailVerificationAttempts" = account."emailVerificationAttempts" + 1
+    FROM verification_time
+    WHERE
+      account."email" = ${email}
+      AND account."emailVerified" IS NULL
+      AND account."emailVerificationCodeHash" IS DISTINCT FROM ${suppliedDigest}
+      AND account."emailVerificationExpiresAt" > verification_time.now
+      AND account."emailVerificationAttempts" < 5
+    RETURNING account."id"
+  `;
 
   return false;
 }
