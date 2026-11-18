@@ -5,6 +5,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { isSessionVersionCurrent } from "@/lib/session-security";
+import { isVerifiedGoogleEmail } from "@/lib/oauth-security";
 import { decryptTotpSecret, otpDigest, emailSecondFactorDigest, verifyTotpCounter, consumeEmailSecondFactorCode } from "@/lib/two-factor";
 import { consumeCredentialsLoginEndpointLimit, consumeLoginRateLimitPass } from "@/lib/rate-limit";
 
@@ -91,7 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Do not let an unverified Google address establish a verified app account.
       if (account?.provider === "google") {
         const googleProfile = profile as { email_verified?: unknown } | undefined;
-        if (googleProfile?.email_verified !== true) return false;
+        if (!isVerifiedGoogleEmail(googleProfile)) return false;
       }
       if (account?.provider !== "credentials" && user.email) {
         const existing = await prisma.user.findUnique({ where: { email: user.email.toLowerCase() }, select: { twoFactorEnabled: true, emailVerified: true } });
@@ -110,7 +112,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { id: userId },
           select: { id: true, role: true, sessionVersion: true }
         });
-        if (!current || (!user && (typeof token.sessionVersion !== "number" || token.sessionVersion !== current.sessionVersion))) {
+        if (!current || (!user && (!isSessionVersionCurrent(token.sessionVersion, current.sessionVersion)))) {
           delete token.sub;
           delete token.role;
           delete token.sessionVersion;

@@ -135,7 +135,7 @@ test("email 2FA codes are rejected when the active method is not EMAIL", async (
 
 test("email 2FA setup activates only after successful code confirmation", async () =>
   withUser(async (user) => {
-    const validDigest = emailSecondFactorDigest("555555", user.id);
+    const validDigest = emailSecondFactorDigest("555555", user.id, "activation");
 
     await prisma.user.update({
       where: { id: user.id },
@@ -147,12 +147,12 @@ test("email 2FA setup activates only after successful code confirmation", async 
         twoFactorEmailCodeAttempts: 0
       }
     });
-
+ 
     assert.equal(
       await consumeEmailSecondFactorCode(
         prisma,
         user.id,
-        emailSecondFactorDigest("000000", user.id),
+        emailSecondFactorDigest("000000", user.id, "activation"),
         true
       ),
       false
@@ -165,7 +165,12 @@ test("email 2FA setup activates only after successful code confirmation", async 
     assert.equal(stillDisabled.twoFactorMethod, null);
 
     assert.equal(
-      await consumeEmailSecondFactorCode(prisma, user.id, validDigest, true),
+      await consumeEmailSecondFactorCode(
+        prisma,
+        user.id,
+        emailSecondFactorDigest("555555", user.id, "activation"),
+        true
+      ),
       true
     );
 
