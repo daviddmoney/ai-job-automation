@@ -61,13 +61,26 @@ export async function cleanupExpiredRateLimitBuckets(batchSize = CLEANUP_BATCH_S
 
 /** Atomic PostgreSQL counter. Keys are keyed hashes, never raw IPs or emails. */
 export async function consumeRateLimit(key: string, limit: number, windowSeconds: number) {
-  const resetAt = new Date(Date.now() + windowSeconds * 1000);
+  if (!Number.isInteger(limit) || limit < 1 || !Number.isInteger(windowSeconds) || windowSeconds < 1) {
+    throw new Error("INVALID_RATE_LIMIT_CONFIGURATION");
+  }
   const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+    WITH request_clock AS MATERIALIZED (
+      SELECT (clock_timestamp() AT TIME ZONE 'UTC') AS "now"
+    )
     INSERT INTO "RateLimitBucket" ("key", "count", "resetAt")
-    VALUES (${key}, 1, ${resetAt})
+    SELECT ${key}, 1, request_clock."now" + (${windowSeconds} * INTERVAL '1 second')
+    FROM request_clock
     ON CONFLICT ("key") DO UPDATE SET
-      "count" = CASE WHEN "RateLimitBucket"."resetAt" <= NOW() THEN 1 ELSE "RateLimitBucket"."count" + 1 END,
-      "resetAt" = CASE WHEN "RateLimitBucket"."resetAt" <= NOW() THEN ${resetAt} ELSE "RateLimitBucket"."resetAt" END
+      "count" = CASE
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT "now" FROM request_clock) THEN 1
+        ELSE "RateLimitBucket"."count" + 1
+      END,
+      "resetAt" = CASE
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT "now" FROM request_clock)
+          THEN (SELECT "now" FROM request_clock) + (${windowSeconds} * INTERVAL '1 second')
+        ELSE "RateLimitBucket"."resetAt"
+      END
     RETURNING "count"
   `;
   const count = rows[0]?.count ?? limit + 1;
