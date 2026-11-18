@@ -6,7 +6,7 @@ import { verify } from "argon2";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { decryptTotpSecret, otpDigest, verifyTotpCounter } from "@/lib/two-factor";
-import { consumeRateLimit, requestRateLimitKey } from "@/lib/rate-limit";
+import { consumeRateLimit, identityRateLimitKey, requestRateLimitKey } from "@/lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email().max(254),
@@ -29,8 +29,15 @@ const providers = [
       if (!parsed.success) return null;
       const email = parsed.data.email.trim().toLowerCase();
       try {
-        const key = requestRateLimitKey(request, "login", email);
-        if (!(await consumeRateLimit(key, 10, 900))) return null;
+        // These are deliberately independent buckets: changing IP must not reset
+        // the account limit, and rotating email addresses must not reset the IP limit.
+        const ipKey = requestRateLimitKey(request, "login:ip");
+        const emailKey = identityRateLimitKey("login:email", email);
+        const [ipAllowed, emailAllowed] = await Promise.all([
+          consumeRateLimit(ipKey, 20, 900),
+          consumeRateLimit(emailKey, 10, 900)
+        ]);
+        if (!ipAllowed || !emailAllowed) return null;
       } catch { return null; }
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user?.passwordHash || !user.emailVerified) return null;
