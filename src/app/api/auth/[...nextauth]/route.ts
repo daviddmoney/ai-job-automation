@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handlers } from "@/auth";
-import { consumeIndependentRateLimits } from "@/lib/rate-limit";
+import { consumeCredentialsLoginEndpointLimit, consumeOAuthInitiationEndpointLimit } from "@/lib/rate-limit";
 import { createLoginRateLimitPass } from "@/lib/request-identity";
 
 export const GET = handlers.GET;
 
 export async function POST(request: NextRequest) {
   const url = new URL(request.url);
-  if (!url.pathname.endsWith("/callback/credentials")) return handlers.POST(request);
+  if (url.pathname.endsWith("/signin/google")) {\n    try {\n      const limit = await consumeOAuthInitiationEndpointLimit(request);\n      if (!limit.identityVerified) return NextResponse.json({ message: "Sign-in is temporarily unavailable." }, { status: 503 });\n      if (!limit.allowed) return NextResponse.json({ message: "Too many sign-in attempts. Please wait before trying again." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });\n      return handlers.POST(request);\n    } catch {\n      return NextResponse.json({ message: "Sign-in is temporarily unavailable." }, { status: 503 });\n    }\n  }\n  if (!url.pathname.endsWith("/callback/credentials")) return handlers.POST(request);
 
   let email = "";
   try {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const limit = await consumeIndependentRateLimits(request, "login", email, 30, 10, 15 * 60);
+    const limit = await consumeCredentialsLoginEndpointLimit(request, email);
     if (!limit.identityVerified) {
       return NextResponse.json({ message: "Sign-in is temporarily unavailable." }, { status: 503 });
     }
