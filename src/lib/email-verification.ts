@@ -1,15 +1,15 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 /**
- * OTPs have only one million possible values, so their digest must be keyed.
- * AUTH_SECRET is server-only and must never be exposed to the browser.
+ * A six-digit OTP has only one million possible values. Use a keyed digest
+ * so a database-only disclosure cannot be brute-forced offline.
  */
 export function emailVerificationCodeDigest(code: string): string {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   }
-  return createHash("sha256").update(`${secret}:${code}`).digest("hex");
+  return createHmac("sha256", secret).update(code, "utf8").digest("hex");
 }
 
 type RawQueryClient = {
@@ -18,13 +18,8 @@ type RawQueryClient = {
 
 /**
  * Atomically consumes a valid code or increments a failed attempt.
- * PostgreSQL's clock is authoritative: no browser/device timestamp and no
- * application-side expiry comparison participates in acceptance.
- *
- * A single UPDATE serializes concurrent requests on the user row. Once one
- * request consumes the code, subsequent requests no longer match the WHERE.
- * Incorrect requests increment attempts only while fewer than five attempts
- * have been recorded.
+ * PostgreSQL's live clock is authoritative. The conditional UPDATE serializes
+ * concurrent attempts on the user row and prevents replay or >5 attempts.
  */
 export async function consumeEmailVerificationCode(
   db: RawQueryClient,

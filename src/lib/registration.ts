@@ -23,17 +23,50 @@ export async function registerAccount(input: unknown) {
   if (existing?.emailVerified) return { ok: false as const, status: 409, message: "An account with this email already exists." };
 
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const codeHash = emailVerificationCodeDigest(code);
   const passwordHash = await hash(parsed.data.password, { type: 2, memoryCost: 19456, timeCost: 2, parallelism: 1 });
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  const user = existing
-    ? await prisma.user.update({ where: { id: existing.id }, data: { name: parsed.data.name, passwordHash, emailVerificationCodeHash: emailVerificationCodeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } })
-    : await prisma.user.create({ data: { name: parsed.data.name, email, passwordHash, role: "USER", emailVerificationCodeHash: emailVerificationCodeDigest(code), emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: 0 } });
+  if (existing) {
+    // Re-check the unverified state in the write itself. A verification racing
+    // this registration must not let a stale read overwrite a verified account.
+    const issued = await prisma.user.updateMany({
+      where: { id: existing.id, emailVerified: null },
+      data: {
+        name: parsed.data.name,
+        passwordHash,
+        emailVerificationCodeHash: codeHash,
+        emailVerificationExpiresAt: expiresAt,
+        emailVerificationAttempts: 0
+      }
+    });
+    if (issued.count !== 1) {
+      return { ok: false as const, status: 409, message: "An account with this email already exists." };
+    }
+  } else {
+    await prisma.user.create({
+      data: {
+        name: parsed.data.name,
+        email,
+        passwordHash,
+        role: "USER",
+        emailVerificationCodeHash: codeHash,
+        emailVerificationExpiresAt: expiresAt,
+        emailVerificationAttempts: 0
+      }
+    });
+  }
 
   try {
-    await sendVerificationCode(user.email, code);
+    await sendVerificationCode(email, code);
   } catch {
-    return { ok: false as const, status: 503, message: "Your account details were saved, but email delivery is not configured or is temporarily unavailable. Please contact the site administrator before trying again." };
+    // A provider timeout may still have delivered the message. Invalidate only
+    // this issuance, never a newer code created by a concurrent request.
+    await prisma.user.updateMany({
+      where: { email, emailVerified: null, emailVerificationCodeHash: codeHash },
+      data: { emailVerificationCodeHash: null, emailVerificationExpiresAt: null }
+    });
+    return { ok: false as const, status: 503, message: "Your account details were saved, but email delivery is not configured or is temporarily unavailable. Please request a new code or contact the site administrator." };
   }
   return { ok: true as const, message: "Verification code sent. Check your email; the code expires in 10 minutes." };
 }
@@ -41,7 +74,7 @@ export async function registerAccount(input: unknown) {
 export async function verifyAccountEmail(input: unknown) {
   const parsed = z.object({
     email: z.string().trim().email().max(254),
-    code: z.string().regex(/^\d{6}$/)
+    code: z.string().regex(/^\\d{6}$/)
   }).safeParse(input);
   if (!parsed.success) {
     return { ok: false as const, status: 400, message: "Enter a valid email and six-digit verification code." };
@@ -63,16 +96,24 @@ export async function resendAccountVerification(input: unknown) {
   const user = await prisma.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } });
   if (!user || user.emailVerified) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const codeHash = emailVerificationCodeDigest(code);
   const issued = await prisma.user.updateMany({
     where: { id: user.id, emailVerified: null },
     data: {
-      emailVerificationCodeHash: emailVerificationCodeDigest(code),
+      emailVerificationCodeHash: codeHash,
       emailVerificationExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
       emailVerificationAttempts: 0
     }
   });
   if (issued.count !== 1) return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
-  try { await sendVerificationCode(email, code); }
-  catch { return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." }; }
+  try {
+    await sendVerificationCode(email, code);
+  } catch {
+    await prisma.user.updateMany({
+      where: { id: user.id, emailVerified: null, emailVerificationCodeHash: codeHash },
+      data: { emailVerificationCodeHash: null, emailVerificationExpiresAt: null }
+    });
+    return { ok: false as const, status: 503, message: "Email delivery is temporarily unavailable." };
+  }
   return { ok: true as const, message: "If the account needs verification, a new code will be sent." };
 }

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import {
   consumeEmailVerificationCode,
   emailVerificationCodeDigest
@@ -12,7 +13,7 @@ function mockDatabase(initial, clock = () => new Date()) {
     state,
     async $queryRaw(strings, ...values) {
       const sql = strings.join("?");
-      assert.match(sql, /clock_timestamp()/);
+      assert.match(sql, /clock_timestamp\(\)/);
       assert.match(sql, /"emailVerificationAttempts" < 5/);
       const digest = values[0];
       assert.ok(values.includes(state.email), "email must be bound as a SQL parameter");
@@ -122,13 +123,14 @@ test("database errors propagate without changing verification state", async () =
   assert.deepEqual(state, { emailVerified: null, hash: digest, attempts: 0 });
 });
 
-test("OTP digests are keyed and reject a missing server secret", () => {
+test("OTP digests are HMAC-keyed and reject a missing server secret", () => {
   const previous = process.env.AUTH_SECRET;
   try {
     delete process.env.AUTH_SECRET;
     assert.throws(() => emailVerificationCodeDigest("123456"), /AUTH_SECRET_NOT_CONFIGURED/);
-    process.env.AUTH_SECRET = "test-only-secret-with-at-least-32-characters";
-    assert.match(emailVerificationCodeDigest("123456"), /^[a-f0-9]{64}$/);
+    const secret = "test-only-secret-with-at-least-32-characters";
+    process.env.AUTH_SECRET = secret;
+    assert.equal(emailVerificationCodeDigest("123456"), createHmac("sha256", secret).update("123456").digest("hex"));
     assert.notEqual(emailVerificationCodeDigest("123456"), emailVerificationCodeDigest("123457"));
   } finally {
     if (previous === undefined) delete process.env.AUTH_SECRET;

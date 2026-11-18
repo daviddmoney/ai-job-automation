@@ -48,7 +48,7 @@ function base32Decode(input: string) {
 export function createTotpSecret() { return base32Encode(randomBytes(20)); }
 
 export function verifyTotpCounter(secret: string, supplied: string, now = Date.now()): number | null {
-  if (!/^\d{6}$/.test(supplied)) return null;
+  if (!/^\\d{6}$/.test(supplied)) return null;
   const key = base32Decode(secret);
   const counter = Math.floor(now / 30_000);
   for (let offset = -1; offset <= 1; offset++) {
@@ -75,6 +75,48 @@ export function otpDigest(code: string) {
   return createHash("sha256").update(`${secret}:${code}`).digest("hex");
 }
 
+/**
+ * Atomically consumes an email second-factor code or increments its failed
+ * attempt counter. When activate=true, successful consumption enables email
+ * 2FA in the same database statement.
+ */
+type RawQueryClient = {
+  $queryRaw<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+};
+export async function consumeEmailSecondFactorCode(
+  db: RawQueryClient,
+  userId: string,
+  suppliedDigest: string,
+  activate = false
+): Promise<boolean> {
+  const rows = await db.$queryRaw<Array<{ accepted: boolean }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEnabled" = CASE WHEN ${activate} THEN TRUE ELSE "twoFactorEnabled" END,
+      "twoFactorMethod" = CASE WHEN ${activate} THEN 'EMAIL' ELSE "twoFactorMethod" END,
+      "twoFactorEmailCodeHash" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeHash"
+      END,
+      "twoFactorEmailCodeExpiresAt" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeExpiresAt"
+      END,
+      "twoFactorEmailCodeAttempts" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 0
+        ELSE "twoFactorEmailCodeAttempts" + 1
+      END,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE
+      "id" = ${userId}
+      AND "twoFactorEmailCodeHash" IS NOT NULL
+      AND "twoFactorEmailCodeExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
+      AND "twoFactorEmailCodeAttempts" < 5
+    RETURNING ("twoFactorEmailCodeHash" IS NULL) AS accepted
+  `;
+  return rows[0]?.accepted === true;
+}
+
 export function newEmailOtp() {
   return String(randomInt(1_000_000)).padStart(6, "0");
 }
@@ -84,4 +126,3 @@ export function totpUri(secret: string, email: string) {
   const issuer = encodeURIComponent("AI Job Automation");
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
-

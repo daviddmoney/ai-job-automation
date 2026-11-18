@@ -16,9 +16,19 @@ export function verifiedClientIp(request: Request) {
   return candidate.toLowerCase();
 }
 
-export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
+function rateLimitSecret() {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  return secret;
+}
+
+/** IP + identifier limit; the identifier is never stored in plaintext. */
+export function requestRateLimitKey(request: Request, scope: string, identifier = "") {
   const ip = verifiedClientIp(request);
-  return createHmac("sha256", secret).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
+  return createHmac("sha256", rateLimitSecret()).update(`${scope}:${ip}:${identifier.toLowerCase()}`).digest("hex");
+}
+
+/** Identifier-wide limit shared across IP addresses to stop distributed OTP re-issuance. */
+export function identifierRateLimitKey(scope: string, identifier: string) {
+  return createHmac("sha256", rateLimitSecret()).update(`${scope}:${identifier.trim().toLowerCase()}`).digest("hex");
 }
