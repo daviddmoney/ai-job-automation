@@ -1,6 +1,6 @@
 "use server";
 
-import { signIn } from "@/auth";
+import { signIn } from "@/auth";\nimport { headers } from "next/headers";\nimport { consumeOAuthInitiationEndpointLimit } from "@/lib/rate-limit";
 
 export type SignInActionState = { error: string };
 
