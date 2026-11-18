@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
-import { consumeEmailSecondFactorCode, consumeEmailSecondFactorRecoveryCode, emailSecondFactorDigest } from "../src/lib/two-factor.ts";
+import { consumeEmailSecondFactorCode, consumeEmailSecondFactorRecoveryCode, emailSecondFactorDigest, issueEmailSecondFactorCode } from "../src/lib/two-factor.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.AUTH_SECRET;
@@ -21,12 +21,15 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
         email,
         emailVerified: new Date(),
         twoFactorEnabled: true,
-        twoFactorMethod: "EMAIL",
-        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000)
+        twoFactorMethod: "EMAIL"
       }
     });
     const digest = digestFor(code, user.id);
-    await prisma.user.update({ where: { id: user.id }, data: { twoFactorEmailCodeHash: digest } });
+    assert.equal(await issueEmailSecondFactorCode(prisma, user.id, digest, 5, "login"), true);
+    const [dbClock] = await prisma.$queryRaw`SELECT (clock_timestamp() AT TIME ZONE 'UTC') AS "now"`;
+    const issuedUser = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const remaining = issuedUser.twoFactorEmailCodeExpiresAt.getTime() - new Date(dbClock.now).getTime();
+    assert.ok(remaining > 4 * 60 * 1000 && remaining <= 5 * 60 * 1000);
     const validResults = await Promise.all(Array.from({ length: 12 }, () =>
       consumeEmailSecondFactorCode(prisma, user.id, digest)));
     assert.equal(validResults.filter(Boolean).length, 1);
@@ -74,11 +77,12 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
       data: {
         twoFactorEnabled: false,
         twoFactorMethod: null,
-        twoFactorEmailCodeHash: digestFor("555555", user.id, "activation"),
-        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        twoFactorEmailCodeHash: null,
+        twoFactorEmailCodeExpiresAt: null,
         twoFactorEmailCodeAttempts: 0
       }
     });
+    assert.equal(await issueEmailSecondFactorCode(prisma, user.id, digestFor("555555", user.id, "activation"), 5, "activation"), true);
     assert.equal(await consumeEmailSecondFactorCode(prisma, user.id, digestFor("000000", user.id, "activation"), true), false);
     const stillDisabled = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     assert.equal(stillDisabled.twoFactorEnabled, false);
@@ -97,12 +101,13 @@ test("email second-factor OTP is atomic, single-use and capped at five failures"
         twoFactorPendingSecretCipher: "test-pending-cipher",
         recoveryCodeHashes: ["previous-recovery-hash"],
         twoFactorLastTotpCounter: BigInt(123),
-        twoFactorEmailCodeHash: digestFor("777777", user.id, "recovery"),
-        twoFactorEmailCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        twoFactorEmailCodeHash: null,
+        twoFactorEmailCodeExpiresAt: null,
         twoFactorEmailCodeAttempts: 0
       }
     });
     const recoveryDigest = digestFor("777777", user.id, "recovery");
+    assert.equal(await issueEmailSecondFactorCode(prisma, user.id, recoveryDigest, 10, "recovery"), true);
     const recoveryResults = await Promise.all(Array.from({ length: 12 }, () =>
       consumeEmailSecondFactorRecoveryCode(prisma, user.id, recoveryDigest)));
     assert.equal(recoveryResults.filter(Boolean).length, 1);

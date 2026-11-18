@@ -76,7 +76,7 @@ export function otpDigest(code: string) {
 }
 
 /** HMAC-keyed digest for six-digit email OTPs; recovery-code hashes remain compatible. */
-export function emailSecondFactorDigest(code: string, userId: string, purpose: "login" | "activation" | "recovery" = "login") {
+export function emailSecondFactorDigest(code: string, userId: string, purpose: "login" | "activation" | "recovery" | "disable" = "login") {
   const secret = process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
   return createHmac("sha256", secret).update(`email-second-factor:${purpose}:v1:${userId}:${code}`, "utf8").digest("hex");
@@ -219,7 +219,7 @@ export async function issueEmailSecondFactorCode(
   userId: string,
   digest: string,
   expiresMinutes: number,
-  purpose: "login" | "activation" | "recovery"
+  purpose: "login" | "activation" | "recovery" | "disable"
 ): Promise<boolean> {
   if (!Number.isInteger(expiresMinutes) || expiresMinutes < 1 || expiresMinutes > 15) {
     throw new Error("INVALID_EMAIL_2FA_EXPIRY");
@@ -234,7 +234,7 @@ export async function issueEmailSecondFactorCode(
     WHERE "id" = ${userId}
       AND "emailVerified" IS NOT NULL
       AND (
-        (${purpose} = 'login' AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL')
+        (${purpose} IN ('login', 'disable') AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL')
         OR (${purpose} = 'activation' AND "twoFactorEnabled" = FALSE)
         OR (${purpose} = 'recovery' AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'TOTP')
       )

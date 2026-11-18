@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import {
   consumeEmailVerificationCode,
-  emailVerificationCodeDigest
+  emailVerificationCodeDigest,
+  issueEmailVerificationCode
 } from "../src/lib/email-verification.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -79,6 +80,25 @@ test("PostgreSQL serializes concurrent OTP consumption and enforces expiry/attem
     assert.equal(await consumeEmailVerificationCode(prisma, attemptsEmail, emailVerificationCodeDigest(validCode, attemptsEmail)), false);
   } finally {
     await prisma.user.deleteMany({ where: { email: { in: [email, `expired-${suffix}@example.test`, `attempts-${suffix}@example.test`, `resend-${suffix}@example.test`] } } });
+    await prisma.$disconnect();
+  }
+});
+
+test("email verification OTP issuance uses the PostgreSQL clock", {
+  skip: !databaseUrl || !authSecret ? "DATABASE_URL and AUTH_SECRET are required for PostgreSQL integration tests" : false
+}, async () => {
+  const prisma = new PrismaClient();
+  const email = `issue-clock-${randomUUID()}@example.test`;
+  try {
+    const user = await prisma.user.create({ data: { email } });
+    const digest = emailVerificationCodeDigest("654321", email);
+    assert.equal(await issueEmailVerificationCode(prisma, user.id, digest), true);
+    const [clock] = await prisma.$queryRaw`SELECT (clock_timestamp() AT TIME ZONE 'UTC') AS "now"`;
+    const issued = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const remaining = issued.emailVerificationExpiresAt.getTime() - new Date(clock.now).getTime();
+    assert.ok(remaining > 9 * 60 * 1000 && remaining <= 10 * 60 * 1000);
+  } finally {
+    await prisma.user.deleteMany({ where: { email } });
     await prisma.$disconnect();
   }
 });
