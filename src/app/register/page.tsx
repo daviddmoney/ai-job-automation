@@ -13,15 +13,16 @@ export default function RegisterPage() {
     setFeedback(null);
 
     try {
+      const formData = new FormData(form);
       const response = await fetch("/api/register", {
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
-          name: new FormData(form).get("name"),
-          email: new FormData(form).get("email"),
-          password: new FormData(form).get("password")
+          name: formData.get("name"),
+          email: formData.get("email"),
+          password: formData.get("password")
         })
       });
 
