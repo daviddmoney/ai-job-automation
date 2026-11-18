@@ -12,19 +12,21 @@ export async function consumeEmailVerificationCode(
   suppliedDigest: string
 ) {
   const verified = await database.$queryRaw<Array<{ id: string }>>`
-    UPDATE "User"
+    WITH verification_time AS (SELECT clock_timestamp() AS now)
+    UPDATE "User" AS account
     SET
-      "emailVerified" = clock_timestamp(),
+      "emailVerified" = verification_time.now,
       "emailVerificationCodeHash" = NULL,
       "emailVerificationExpiresAt" = NULL,
       "emailVerificationAttempts" = 0
+    FROM verification_time
     WHERE
-      "email" = ${email}
-      AND "emailVerified" IS NULL
-      AND "emailVerificationCodeHash" = ${suppliedDigest}
-      AND "emailVerificationExpiresAt" > clock_timestamp()
-      AND "emailVerificationAttempts" < 5
-    RETURNING "id"
+      account."email" = ${email}
+      AND account."emailVerified" IS NULL
+      AND account."emailVerificationCodeHash" = ${suppliedDigest}
+      AND account."emailVerificationExpiresAt" > verification_time.now
+      AND account."emailVerificationAttempts" < 5
+    RETURNING account."id"
   `;
 
   if (verified.length === 1) return true;
@@ -32,15 +34,17 @@ export async function consumeEmailVerificationCode(
   // A wrong code is charged only while the OTP is still live and unconsumed.
   // The predicate and increment execute atomically in PostgreSQL.
   await database.$queryRaw<Array<{ id: string }>>`
-    UPDATE "User"
-    SET "emailVerificationAttempts" = "emailVerificationAttempts" + 1
+    WITH verification_time AS (SELECT clock_timestamp() AS now)
+    UPDATE "User" AS account
+    SET "emailVerificationAttempts" = account."emailVerificationAttempts" + 1
+    FROM verification_time
     WHERE
-      "email" = ${email}
-      AND "emailVerified" IS NULL
-      AND "emailVerificationCodeHash" IS DISTINCT FROM ${suppliedDigest}
-      AND "emailVerificationExpiresAt" > clock_timestamp()
-      AND "emailVerificationAttempts" < 5
-    RETURNING "id"
+      account."email" = ${email}
+      AND account."emailVerified" IS NULL
+      AND account."emailVerificationCodeHash" IS DISTINCT FROM ${suppliedDigest}
+      AND account."emailVerificationExpiresAt" > verification_time.now
+      AND account."emailVerificationAttempts" < 5
+    RETURNING account."id"
   `;
 
   return false;
