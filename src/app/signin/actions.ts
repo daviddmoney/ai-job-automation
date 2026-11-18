@@ -30,7 +30,7 @@ export async function credentialsSignIn(_previousState: SignInActionState, formD
 
 export async function googleSignIn() {
   const requestHeaders = await headers();
-  const request = new Request("https://internal.invalid/api/auth/signin/google", { headers: requestHeaders });
+  const request = new Request("https://internal.invalid/api/auth/signin/google", { headers: new Headers(requestHeaders) });
   const limit = await consumeOAuthInitiationEndpointLimit(request);
   if (!limit.identityVerified) throw new Error("Sign-in is temporarily unavailable.");
   if (!limit.allowed) throw new Error("Too many sign-in attempts. Please wait before trying again.");
