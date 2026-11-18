@@ -10,15 +10,15 @@ This document records the authentication controls implemented on the security PR
 - OAuth sign-in is denied for accounts with 2FA enabled until a complete OAuth second-factor challenge flow exists.
 - JWT sessions use an eight-hour maximum lifetime, secure cookies in production, and a database-backed `sessionVersion` check on every session read. Missing, stale, or unverifiable versions fail closed.
 - Password reset uses a random one-time token, HMAC digest at rest, 15-minute expiry, generic request responses, rate limits, one-time transactional consumption, an audit event, and session revocation.
-- Email verification uses account-bound HMAC digests, database-clock expiry, one-time atomic consumption, and a five-attempt limit.
-- Email second-factor OTPs use account- and purpose-bound HMAC digests, atomic consumption, expiry and five-attempt enforcement.
+- Email verification uses account-bound HMAC digests, database-clock issuance and expiry, one-time atomic consumption, and a five-attempt limit.
+- Email second-factor OTPs use account- and purpose-bound HMAC digests, database-clock issuance and expiry, atomic consumption, and five-attempt enforcement.
 - TOTP secrets are encrypted using AES-256-GCM. TOTP replay counters are stored atomically.
 - TOTP recovery codes are random, stored hashed, shown once, rotated only after password and fresh TOTP proof, and audited.
 - Email fallback recovery for lost TOTP/recovery codes requires the account password and a one-time code sent to the verified email; it disables TOTP and revokes all sessions.
 - 2FA setup and disable operations require password reauthentication; disable additionally requires current TOTP, a freshly issued email OTP, or a one-time recovery code. 2FA changes are audited and revoke sessions.
-- Staff provisioning requires explicit confirmation, target account verification, an operator email and reason. The promotion is transactional and recorded in AuditEvent.
-- Persistent rate-limit buckets are atomically updated. Denials are audited once per bucket/window, structured events are logged without raw identifiers, expired buckets are cleaned opportunistically in bounded batches, and a staff-only monitoring endpoint reports bucket and denial counts. A manual cleanup script is available as `npm run rate-limit:cleanup`.
-- Sensitive authentication and 2FA POST routes enforce same-origin checks and bounded request bodies.
+- Staff provisioning requires explicit confirmation, target account verification, an operator email and reason. After the first explicitly approved bootstrap, the actor must be an existing verified STAFF user. The promotion is transactional, revokes the target's sessions and is recorded in AuditEvent.
+- Persistent rate-limit buckets use PostgreSQL's live clock for atomic window reset. Denials are audited once per bucket/window, structured events are logged without raw identifiers, expired buckets are cleaned opportunistically in bounded batches, and a staff-only monitoring endpoint reports bucket and denial counts. A manual cleanup script is available as `npm run rate-limit:cleanup` for an external scheduled job.
+- Sensitive authentication and 2FA POST routes enforce exact same-origin checks, reject HTTP-origin downgrade in production, and use bounded request bodies.
 
 ## Automated verification
 
@@ -33,7 +33,7 @@ A green workflow is evidence for the exact commit tested; it does not validate R
 3. **Transactional email:** The inspected production variable list did not contain `EMAIL_FROM` or any supported provider API key (`RESEND_API_KEY`, `POSTMARK_SERVER_TOKEN`, or `SENDGRID_API_KEY`). Configure a verified sender and provider credential in Railway before relying on verification, OTP, password-reset or recovery email.
 4. **Google OAuth:** `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` were not present in the inspected production variable list. If Google sign-in is required, add credentials and register the callback against the trusted proxy hostname. Otherwise keep Google sign-in disabled.
 5. **Independent human review:** No independent human review is recorded on PR #14. A repository owner must nominate/request an available human collaborator or security reviewer. Automated AI reviews are not a substitute.
-6. **DeepSeek second opinion:** The optional GitHub Action is configured, but the provider rejected the request for insufficient balance. This is an external DeepSeek account billing condition, not a code defect. An account owner must add API credits or replace the API key with one backed by an adequately funded account; do not treat the unavailable review as a pass.
+6. **DeepSeek second opinion:** The optional GitHub Action now classifies HTTP 402/Insufficient Balance and writes an explicit skipped/not-passed summary. The provider still rejects the request for insufficient balance. This is an external DeepSeek account billing condition, not a code defect. An account owner must add API credits or replace the API key with one backed by an adequately funded account; do not treat the unavailable review as a pass.
 7. **Live validation:** After the staged Railway patch is applied, test proxy GET/POST paths, OAuth callback, cookie attributes, direct-origin rejection, rate-limit IP spoofing and runtime logs from outside the environment. Confirm the proxy can reach the app after app redeploys.
 8. **Operational/security gates:** Verify backups and restore, alert routing, log redaction, malware scanning/quarantine for uploaded CVs, live two-account tenant isolation, privacy/retention requirements and independent penetration testing before accepting real customer data.
 
