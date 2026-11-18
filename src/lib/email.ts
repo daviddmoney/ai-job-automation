@@ -1,13 +1,32 @@
 type EmailProvider = "resend" | "postmark" | "sendgrid";
 interface EmailMessage { from: string; to: string; subject: string; text: string; html: string; }
 const timeout = () => AbortSignal.timeout(15000);
+
+async function providerFailure(response: Response, provider: EmailProvider): Promise<Error> {
+ let code = "provider_rejected_request";
+ try {
+  const body: unknown = await response.json();
+  if (body && typeof body === "object") {
+   const record = body as Record<string, unknown>;
+   const candidate = [record.name, record.code, record.ErrorCode].find(value => typeof value === "string" || typeof value === "number");
+   if (candidate !== undefined) {
+    const safe = String(candidate);
+    if (/^[A-Za-z0-9_.-]{1,60}$/.test(safe)) code = safe;
+   }
+  }
+ } catch { /* Provider returned a non-JSON error body. */ }
+ const error = new Error(provider + " rejected email request");
+ Object.assign(error, { provider, providerStatus: response.status, providerCode: code });
+ return error;
+}
+
 async function sendResend(message: EmailMessage) {
  const key = process.env.RESEND_API_KEY; if (!key) throw new Error("not configured");
  const response = await fetch("https://api.resend.com/emails", {
   method: "POST", headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
   body: JSON.stringify({ from: message.from, to: [message.to], subject: message.subject, text: message.text, html: message.html }), signal: timeout()
  });
- if (!response.ok) throw new Error("Resend delivery failed");
+ if (!response.ok) throw await providerFailure(response, "resend");
 }
 async function sendPostmark(message: EmailMessage) {
  const key = process.env.POSTMARK_SERVER_TOKEN; if (!key) throw new Error("not configured");
@@ -15,7 +34,7 @@ async function sendPostmark(message: EmailMessage) {
   method: "POST", headers: { "X-Postmark-Server-Token": key, "Content-Type": "application/json", Accept: "application/json" },
   body: JSON.stringify({ From: message.from, To: message.to, Subject: message.subject, TextBody: message.text, HtmlBody: message.html }), signal: timeout()
  });
- if (!response.ok) throw new Error("Postmark delivery failed");
+ if (!response.ok) throw await providerFailure(response, "postmark");
 }
 async function sendSendGrid(message: EmailMessage) {
  const key = process.env.SENDGRID_API_KEY; if (!key) throw new Error("not configured");
@@ -24,7 +43,7 @@ async function sendSendGrid(message: EmailMessage) {
   body: JSON.stringify({ personalizations: [{ to: [{ email: message.to }] }], from: { email: message.from }, subject: message.subject,
    content: [{ type: "text/plain", value: message.text }, { type: "text/html", value: message.html }] }), signal: timeout()
  });
- if (!response.ok) throw new Error("SendGrid delivery failed");
+ if (!response.ok) throw await providerFailure(response, "sendgrid");
 }
 const senders: Record<EmailProvider, (message: EmailMessage) => Promise<void>> = { resend: sendResend, postmark: sendPostmark, sendgrid: sendSendGrid };
 function configured(provider: EmailProvider) {
@@ -39,7 +58,15 @@ async function sendEmail(message: Omit<EmailMessage, "from">) {
   if (!configured(provider)) continue;
   tried.push(provider);
   try { await senders[provider]({ ...message, from }); return; }
-  catch { /* Fail over without logging recipients, message bodies or provider credentials. */ }
+  catch (error) {
+   const detail = error && typeof error === "object" ? error as { providerStatus?: number; providerCode?: string } : {};
+   // Never log recipient addresses, message bodies, OTPs, API credentials or raw provider responses.
+   console.error("[email] provider delivery failed", {
+    provider,
+    status: detail.providerStatus ?? null,
+    code: detail.providerCode ?? (error instanceof Error && error.name === "TimeoutError" ? "timeout" : "request_failed")
+   });
+  }
  }
  throw new Error(tried.length ? "EMAIL_PROVIDERS_UNAVAILABLE" : "EMAIL_DELIVERY_NOT_CONFIGURED");
 }

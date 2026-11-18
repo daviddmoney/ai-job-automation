@@ -9,6 +9,7 @@ function sameOrigin(request: NextRequest) {
   if (!origin) return false;
   try { return new URL(origin).host === request.headers.get("host"); } catch { return false; }
 }
+const genericRegistrationMessage = "If the details can be used to create or verify an account, the website will guide you through the next step. For your security, we cannot confirm account status here. If you need a verification code, use the email verification page to request one.";
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
@@ -35,16 +36,10 @@ export async function POST(request: NextRequest) {
   try {
     const result = await registerAccount(parsedBody.data);
     if (!result.ok && result.status === 400) return NextResponse.json({ message: result.message }, { status: 400 });
-    // Do not reveal whether the email exists or whether a message was sent.
-    return NextResponse.json(
-      { message: "If the details can be used to create or verify an account, instructions will be sent to that email address." },
-      { status: 202 }
-    );
+    // Keep the response identical for existing, new, and delivery-failure cases.
+    return NextResponse.json({ message: genericRegistrationMessage }, { status: 202 });
   } catch {
     // Keep the public response indistinguishable from an existing-account response.
-    return NextResponse.json(
-      { message: "If the details can be used to create or verify an account, instructions will be sent to that email address." },
-      { status: 202 }
-    );
+    return NextResponse.json({ message: genericRegistrationMessage }, { status: 202 });
   }
 }
