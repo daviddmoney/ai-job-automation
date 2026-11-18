@@ -1,6 +1,8 @@
 "use server";
 
-import { signIn } from "@/auth";\nimport { headers } from "next/headers";\nimport { consumeOAuthInitiationEndpointLimit } from "@/lib/rate-limit";
+import { signIn } from "@/auth";
+import { headers } from "next/headers";
+import { consumeOAuthInitiationEndpointLimit } from "@/lib/rate-limit";
 
 export type SignInActionState = { error: string };
 
@@ -27,5 +29,10 @@ export async function credentialsSignIn(_previousState: SignInActionState, formD
 }
 
 export async function googleSignIn() {
+  const requestHeaders = await headers();
+  const request = new Request("https://internal.invalid/api/auth/signin/google", { headers: requestHeaders });
+  const limit = await consumeOAuthInitiationEndpointLimit(request);
+  if (!limit.identityVerified) throw new Error("Sign-in is temporarily unavailable.");
+  if (!limit.allowed) throw new Error("Too many sign-in attempts. Please wait before trying again.");
   await signIn("google", { redirectTo: "/dashboard" });
 }
