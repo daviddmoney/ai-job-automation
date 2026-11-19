@@ -78,7 +78,10 @@ export default function RegisterPage() {
       <label style={{ display: "grid", gap: 6 }}>Password<input name="password" type="password" required minLength={12} maxLength={128} autoComplete="new-password" disabled={busy} style={field} /><small style={{ color: "#697589" }}>At least 12 characters, including uppercase, lowercase, and a number.</small></label>
       <button disabled={busy} type="submit" style={{ ...button, opacity: busy ? 0.7 : 1, cursor: busy ? "wait" : "pointer" }}>{busy ? "Creating account…" : "Create account"}</button>
     </form>
-    {feedback && <p role={feedback.kind === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" style={{ marginTop: 18, lineHeight: 1.6, color: feedback.kind === "error" ? "#b42318" : "#176b3a" }}>{feedback.message}</p>}
+    {feedback && <section role={feedback.kind === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" style={{ marginTop: 18, lineHeight: 1.6, color: feedback.kind === "error" ? "#b42318" : "#176b3a" }}>
+      <p>{feedback.message}</p>
+      <p style={{ marginTop: 8, color: "#596579" }}>For security, we do not disclose whether an email address already has an account. If you need a verification code or did not receive one, <a href="/verify-email" style={{ color: "#3657a7", textDecoration: "underline" }}>open email verification</a> to request it.</p>
+    </section>}
     <p style={{ marginTop: 20 }}><a href="/verify-email" style={{ color: "#3657a7" }}>Already registered? Verify your email</a></p>
   </main>;
 }
