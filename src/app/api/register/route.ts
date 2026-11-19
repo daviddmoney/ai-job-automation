@@ -9,7 +9,6 @@ function sameOrigin(request: NextRequest) {
   if (!origin) return false;
   try { return new URL(origin).host === request.headers.get("host"); } catch { return false; }
 }
-const genericRegistrationMessage = "If the details can be used to create or verify an account, the website will guide you through the next step. For your security, we cannot confirm account status here. If you need a verification code, use the email verification page to request one.";
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
@@ -35,11 +34,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await registerAccount(parsedBody.data);
-    if (!result.ok && result.status === 400) return NextResponse.json({ message: result.message }, { status: 400 });
-    // Keep the response identical for existing, new, and delivery-failure cases.
-    return NextResponse.json({ message: genericRegistrationMessage }, { status: 202 });
+    if (!result.ok && result.status === 400) {
+      return NextResponse.json({ message: result.message }, { status: 400 });
+    }
+    // An existing verified account remains indistinguishable from a new one.
+    // Infrastructure or email-delivery failures are different: return a generic
+    // outage response so the user is not falsely told that processing succeeded.
+    if (!result.ok && result.status === 503) {
+      return NextResponse.json(
+        { message: "Registration is temporarily unavailable. Please try again later." },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json(
+      { message: "If the details can be used to create or verify an account, instructions will be sent to that email address." },
+      { status: 202 }
+    );
   } catch {
-    // Keep the public response indistinguishable from an existing-account response.
-    return NextResponse.json({ message: genericRegistrationMessage }, { status: 202 });
+    return NextResponse.json(
+      { message: "Registration is temporarily unavailable. Please try again later." },
+      { status: 503 }
+    );
   }
 }
