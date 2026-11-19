@@ -8,18 +8,25 @@ export type RateLimitDecision = { allowed: boolean; retryAfterSeconds: number };
 /** Atomic PostgreSQL counter shared by every application instance using this database. */
 export async function consumeRateLimitWithInfo(key: string, limit: number, windowSeconds: number): Promise<RateLimitDecision> {
   const rows = await prisma.$queryRaw<Array<{ count: number; retryAfterSeconds: number }>>`
+    WITH db_clock AS MATERIALIZED (
+      SELECT clock_timestamp() AS now
+    )
     INSERT INTO "RateLimitBucket" ("key", "count", "resetAt")
-    VALUES (${key}, 1, clock_timestamp() + (${windowSeconds} * INTERVAL '1 second'))
+    SELECT ${key}, 1, db_clock.now + (${windowSeconds} * INTERVAL '1 second')
+    FROM db_clock
     ON CONFLICT ("key") DO UPDATE SET
-      "count" = CASE WHEN "RateLimitBucket"."resetAt" <= clock_timestamp() THEN 1 ELSE "RateLimitBucket"."count" + 1 END,
+      "count" = CASE
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT now FROM db_clock) THEN 1
+        ELSE "RateLimitBucket"."count" + 1
+      END,
       "resetAt" = CASE
-        WHEN "RateLimitBucket"."resetAt" <= clock_timestamp()
-          THEN clock_timestamp() + (${windowSeconds} * INTERVAL '1 second')
+        WHEN "RateLimitBucket"."resetAt" <= (SELECT now FROM db_clock)
+          THEN (SELECT now FROM db_clock) + (${windowSeconds} * INTERVAL '1 second')
         ELSE "RateLimitBucket"."resetAt"
       END
     RETURNING
       "count",
-      GREATEST(1, CEIL(EXTRACT(EPOCH FROM ("resetAt" - clock_timestamp()))))::int AS "retryAfterSeconds"
+      GREATEST(1, CEIL(EXTRACT(EPOCH FROM ("resetAt" - (SELECT now FROM db_clock)))))::int AS "retryAfterSeconds"
   `;
   const row = rows[0];
   return {
