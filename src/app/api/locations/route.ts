@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { auth } from "@/auth";
 import { consumeRateLimitWithInfo } from "@/lib/rate-limit";
 
@@ -12,6 +13,33 @@ function cleanItems(value: unknown): string[] {
   return [...new Set(value.filter((item): item is string => typeof item === "string")
     .map(item => item.trim()).filter(item => item.length > 0 && item.length <= 120))].sort((a, b) => a.localeCompare(b));
 }
+
+const getCachedLocationItems = unstable_cache(
+  async (type: "states" | "cities", country: string, state: string): Promise<string[]> => {
+    const endpoint = type === "states" ? "/countries/states" : "/countries/state/cities";
+    const payload = type === "states" ? { country } : { country, state };
+    const response = await fetch(`${PROVIDER}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) throw new Error("Location data provider unavailable");
+
+    const result: unknown = await response.json();
+    const data = result && typeof result === "object" && "data" in result
+      ? (result as { data: unknown }).data
+      : null;
+    const stateRows = data && typeof data === "object" && "states" in data
+      ? (data as { states?: unknown }).states
+      : null;
+    return type === "states" && Array.isArray(stateRows)
+      ? cleanItems(stateRows.map(item => item && typeof item === "object" && "name" in item ? (item as { name: unknown }).name : null))
+      : type === "cities" ? cleanItems(data) : [];
+  },
+  ["countriesnow-geography-v1"],
+  { revalidate: 86400 },
+);
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -41,29 +69,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const endpoint = type === "states" ? "/countries/states" : "/countries/state/cities";
-    const payload = type === "states" ? { country } : { country, state };
-    const response = await fetch(`${PROVIDER}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(8000),
-      next: { revalidate: 86400 },
-    });
-    if (!response.ok) {
-      return NextResponse.json({ message: "Location data provider is temporarily unavailable." }, { status: 502 });
-    }
-
-    const result: unknown = await response.json();
-    const data = result && typeof result === "object" && "data" in result
-      ? (result as { data: unknown }).data
-      : null;
-    const stateRows = data && typeof data === "object" && "states" in data
-      ? (data as { states?: unknown }).states
-      : null;
-    const items = type === "states" && Array.isArray(stateRows)
-      ? cleanItems(stateRows.map(item => item && typeof item === "object" && "name" in item ? (item as { name: unknown }).name : null))
-      : type === "cities" ? cleanItems(data) : [];
+    const items = await getCachedLocationItems(type, country, state);
 
     return NextResponse.json({ items }, {
       headers: { "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400" },
