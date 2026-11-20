@@ -51,12 +51,11 @@ const getCachedJobs = unstable_cache(
         "other professional fields": ["architect", "graphic design", "content writer", "journalist", "hospitality", "hotel", "agriculture", "environmental", "security", "government"]
       };
       const terms = [...new Set(filters.jobCategories.flatMap(category => familyTerms[category.toLocaleLowerCase()] ?? [category]))];
-      and.push({
-        OR: terms.flatMap(term => [
-          { jobCategory: { contains: term, mode: "insensitive" } },
-          { title: { contains: term, mode: "insensitive" } }
-        ])
-      });
+      const categoryFilters: Prisma.JobPostingWhereInput[] = terms.flatMap((term): Prisma.JobPostingWhereInput[] => [
+        { jobCategory: { contains: term, mode: "insensitive" } },
+        { title: { contains: term, mode: "insensitive" } }
+      ]);
+      and.push({ OR: categoryFilters });
     }
 
     const locations: Prisma.JobPostingWhereInput[] = [];
