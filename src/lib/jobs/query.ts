@@ -84,7 +84,13 @@ const getCachedJobs = unstable_cache(
         "telecommunications": ["telecommunications", "network engineer", "radio frequency", "telecoms", "network operations"],
         "isco-08 major occupational groups": ["manager", "professional", "technician", "associate professional", "clerical", "service", "sales", "agricultural", "forestry", "fishery", "craft", "trades", "plant operator", "machine operator", "elementary occupation", "armed forces"]
       };
-      const terms = [...new Set(filters.jobCategories.flatMap(category => familyTerms[category.toLocaleLowerCase()] ?? [category]))];
+      const terms = [...new Set(filters.jobCategories.flatMap(category => {
+        if (category.startsWith("ISCO08:")) {
+          const occupationLabel = category.split("::")[1];
+          return occupationLabel ? [occupationLabel] : [];
+        }
+        return familyTerms[category.toLocaleLowerCase()] ?? [category];
+      }))].slice(0, 250);
       const categoryFilters: Prisma.JobPostingWhereInput[] = terms.flatMap((term): Prisma.JobPostingWhereInput[] => [
         { jobCategory: { contains: term, mode: "insensitive" } },
         { title: { contains: term, mode: "insensitive" } }
