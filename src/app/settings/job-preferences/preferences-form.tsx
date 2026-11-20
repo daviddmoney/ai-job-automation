@@ -214,6 +214,8 @@ export default function JobPreferencesForm() {
   const [locationError, setLocationError] = useState("");
   const [languageSearch, setLanguageSearch] = useState("");
   const [languageOptions, setLanguageOptions] = useState<Option[]>(LANGUAGES);
+  const [occupationSearch, setOccupationSearch] = useState("");
+  const [occupationOptions, setOccupationOptions] = useState<Option[]>(CATEGORY_OPTIONS);
 
   useEffect(() => {
     let active = true;
@@ -258,6 +260,22 @@ export default function JobPreferencesForm() {
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [languageSearch]);
+
+  useEffect(() => {
+    const query = occupationSearch.trim();
+    if (query.length < 2) { setOccupationOptions(CATEGORY_OPTIONS); return; }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/occupations?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Occupation lookup unavailable");
+        const result = await response.json();
+        const remote = Array.isArray(result?.items) ? result.items as Option[] : [];
+        setOccupationOptions([...new Map<string, Option>([...CATEGORY_OPTIONS, ...remote].map(option => [option.value, option] as [string, Option])).values()]);
+      } catch { if (!controller.signal.aborted) setOccupationOptions(CATEGORY_OPTIONS); }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [occupationSearch]);
 
   useEffect(() => {
     let active = true;
@@ -321,7 +339,7 @@ export default function JobPreferencesForm() {
         {mode.label}
       </label>)}
     </div>
-    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several." options={CATEGORY_OPTIONS} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families and job titles…" allowCustom />
+    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several." options={occupationOptions} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families, job titles and ISCO-08 occupations…" allowCustom onQueryChange={setOccupationSearch} />
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
