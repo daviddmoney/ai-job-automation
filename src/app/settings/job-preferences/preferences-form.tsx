@@ -34,7 +34,7 @@ const LANGUAGE_CODES = `aa ab ae af ak am an ar as av ay az ba be bg bh bi bm bn
 const EMPLOYMENT_TYPES = [
   "Full-time", "Part-time", "Permanent", "Fixed-term", "Contract", "Temporary",
   "Internship", "Graduate Trainee", "Apprenticeship", "Freelance", "Self-employed",
-  "Casual", "Seasonal", "Volunteer", "Commission-based", "Entry-level",
+  "Casual", "Seasonal", "Volunteer", "Commission-based", "Entry-level", "Consultancy", "On-call", "Zero-hours", "Shift-based", "Project-based", "Gig / Platform work", "Commission-only", "Returnship", "Co-operative placement", "Work-study", "Probationary",
 ];
 
 const WORK_MODES = [
