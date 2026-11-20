@@ -12,7 +12,7 @@ The Job and Language Preferences screen now uses searchable multi-select control
 - **Employment types:** Common global employment arrangements, with custom entries supported.
 - **Work arrangements:** On-site, hybrid, remote and flexible are kept separate from employment contract types.
 - **Job families and titles:** A grouped starter taxonomy across accounting/finance, technology, administration, HR, sales/marketing, legal, engineering, healthcare, education, customer support, logistics and project/business management. Custom titles can be added.
-- **Languages:** The selector uses ISO 639-1 language codes and native display names for the 184 two-letter language entries represented in the UI. Additional language values can be added. This is not a complete ISO 639-3 catalogue of every living, historical or constructed language; a complete catalogue should be added as a separately versioned dataset before marketing the product as covering every language in the world.
+- **Languages:** The selector uses ISO 639-1 language codes and native display names for the 184 two-letter language entries represented in the UI. Additional language values can be added. This is not a complete ISO 639-3 catalogue of every living, historical or constructed language. SIL's ISO 639-3 terms allow incorporation into software with attribution but restrict redistribution of the code set; review the applicable terms and implementation design before adding the full catalogue. Do not market this selector as covering every language in the world until that work is complete.
 
 ## Geography provider
 
