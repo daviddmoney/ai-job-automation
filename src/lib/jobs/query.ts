@@ -67,10 +67,25 @@ const getCachedJobs = unstable_cache(
       );
     }
     for (const region of filters.preferredRegions) {
-      locations.push({ state: { equals: region, mode: "insensitive" } }, { locationText: { contains: region, mode: "insensitive" } });
+      const [regionName, regionCountry] = region.split("::");
+      const regionMatch: Prisma.JobPostingWhereInput = regionCountry
+        ? { AND: [
+            { OR: [{ state: { equals: regionName, mode: "insensitive" } }, { locationText: { contains: regionName, mode: "insensitive" } }] },
+            { OR: [{ country: { equals: regionCountry, mode: "insensitive" } }, { locationText: { contains: regionCountry, mode: "insensitive" } }] }
+          ] }
+        : { OR: [{ state: { equals: regionName, mode: "insensitive" } }, { locationText: { contains: regionName, mode: "insensitive" } }] };
+      locations.push(regionMatch);
     }
     for (const city of filters.preferredCities) {
-      locations.push({ city: { equals: city, mode: "insensitive" } }, { locationText: { contains: city, mode: "insensitive" } });
+      const [cityName, cityRegion, cityCountry] = city.split("::");
+      const cityMatch: Prisma.JobPostingWhereInput = cityRegion && cityCountry
+        ? { AND: [
+            { OR: [{ city: { equals: cityName, mode: "insensitive" } }, { locationText: { contains: cityName, mode: "insensitive" } }] },
+            { OR: [{ state: { equals: cityRegion, mode: "insensitive" } }, { locationText: { contains: cityRegion, mode: "insensitive" } }] },
+            { OR: [{ country: { equals: cityCountry, mode: "insensitive" } }, { locationText: { contains: cityCountry, mode: "insensitive" } }] }
+          ] }
+        : { OR: [{ city: { equals: cityName, mode: "insensitive" } }, { locationText: { contains: cityName, mode: "insensitive" } }] };
+      locations.push(cityMatch);
     }
     if (!filters.worldwideSearch && locations.length) and.push({ OR: locations });
 
