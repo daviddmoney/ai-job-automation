@@ -56,6 +56,21 @@ const CATEGORY_GROUPS: Record<string, string[]> = {
   "Logistics & Supply Chain": ["Logistics Officer", "Supply Chain Analyst", "Procurement Officer", "Purchasing Manager", "Warehouse Supervisor", "Fleet Manager", "Inventory Controller"],
   "Project & Business Management": ["Project Coordinator", "Project Manager", "Programme Manager", "Business Analyst", "Management Consultant", "Strategy Analyst"],
   "Other Professional Fields": ["Architect", "Graphic Designer", "Content Writer", "Journalist", "Hospitality Officer", "Hotel Manager", "Agricultural Officer", "Environmental Specialist", "Security Officer", "Government Officer"],
+  "Construction & Property": ["Construction Manager", "Quantity Surveyor", "Site Engineer", "Building Surveyor", "Land Surveyor", "Estate Surveyor", "Property Manager", "Real Estate Agent", "Town Planner", "Facilities Manager", "Carpenter", "Mason", "Plumber", "Electrician", "Painter"],
+  "Transport & Aviation": ["Pilot", "Cabin Crew", "Air Traffic Controller", "Flight Operations Officer", "Truck Driver", "Bus Driver", "Delivery Driver", "Train Driver", "Transport Planner", "Dispatch Officer", "Marine Engineer", "Ship Captain", "Port Operations Officer"],
+  "Science & Environment": ["Biologist", "Chemist", "Physicist", "Laboratory Technician", "Geologist", "Environmental Scientist", "Environmental Officer", "Climate Analyst", "Conservation Officer", "Food Scientist", "Statistician", "Research Scientist"],
+  "Media & Creative": ["Graphic Artist", "Animator", "Photographer", "Video Editor", "Film Producer", "Broadcast Journalist", "Editor", "Copywriter", "Translator", "Interpreter", "Musician", "Sound Engineer", "Public Relations Officer"],
+  "Hospitality & Tourism": ["Hotel Receptionist", "Hotel Manager", "Chef", "Cook", "Restaurant Manager", "Waiter", "Barista", "Travel Consultant", "Tour Guide", "Event Planner", "Housekeeping Supervisor"],
+  "Agriculture & Food": ["Agronomist", "Agricultural Engineer", "Farm Manager", "Agricultural Extension Officer", "Veterinarian", "Veterinary Nurse", "Fisheries Officer", "Forestry Officer", "Food Technologist", "Food Safety Officer", "Butcher", "Horticulturist"],
+  "Public Service & Development": ["Public Administrator", "Policy Analyst", "Diplomat", "Development Officer", "Monitoring and Evaluation Officer", "Humanitarian Officer", "Social Worker", "Community Development Officer", "Programme Officer", "Public Health Researcher"],
+  "Security & Emergency Services": ["Police Officer", "Firefighter", "Security Analyst", "Security Guard", "Emergency Medical Technician", "Paramedic", "Disaster Risk Officer", "Occupational Safety Officer", "Health and Safety Manager"],
+  "Skilled Trades & Maintenance": ["Automotive Mechanic", "Diesel Mechanic", "Welding Technician", "HVAC Technician", "Maintenance Technician", "Machine Operator", "CNC Operator", "Electronics Technician", "Telecommunications Technician", "Appliance Repair Technician"],
+  "Insurance & Actuarial": ["Actuary", "Insurance Underwriter", "Claims Adjuster", "Insurance Broker", "Insurance Officer", "Pension Administrator", "Actuarial Analyst"],
+  "Retail & E-commerce": ["Retail Sales Assistant", "Store Manager", "Merchandiser", "E-commerce Manager", "E-commerce Specialist", "Category Manager", "Buyer", "Visual Merchandiser"],
+  "Energy & Utilities": ["Petroleum Engineer", "Mining Engineer", "Renewable Energy Engineer", "Power Systems Engineer", "Energy Analyst", "Utilities Technician", "Oil and Gas Operator", "Electrical Power Technician"],
+  "Sports & Recreation": ["Sports Coach", "Athlete", "Fitness Instructor", "Personal Trainer", "Sports Administrator", "Sports Therapist", "Recreation Officer"],
+  "Telecommunications": ["Telecommunications Engineer", "Network Engineer", "Radio Frequency Engineer", "Telecoms Technician", "Network Operations Analyst"],
+  "ISCO-08 Major Occupational Groups": ["Managers", "Professionals", "Technicians and Associate Professionals", "Clerical Support Workers", "Service and Sales Workers", "Skilled Agricultural, Forestry and Fishery Workers", "Craft and Related Trades Workers", "Plant and Machine Operators and Assemblers", "Elementary Occupations", "Armed Forces Occupations"],
 };
 
 const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
