@@ -73,9 +73,9 @@ export async function GET(request: NextRequest) {
       .slice(0, 100);
   }
 
-  const items = [...new Map(matches.map(language => {
+  const items = [...new Map<string, { value: string; label: string }>(matches.map(language => {
     const option = toOption(language, code || undefined);
-    return [option.value, option];
+    return [option.value, option] as [string, { value: string; label: string }];
   })).values()];
 
   return NextResponse.json({ items, source: "ISO 639-3 / ISO 639-1", count: items.length }, {
