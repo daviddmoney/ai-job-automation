@@ -380,7 +380,7 @@ export default function JobPreferencesForm() {
         {mode.label}
       </label>)}
     </div>
-    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several." options={occupationOptions} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families, job titles and ISCO-08 occupations…" allowCustom onQueryChange={setOccupationSearch} />
+    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several. Standard occupation groups: ILO ISCO-08." options={occupationOptions} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families, job titles and ISCO-08 occupations…" allowCustom onQueryChange={setOccupationSearch} />
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
