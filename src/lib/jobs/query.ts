@@ -86,8 +86,10 @@ const getCachedJobs = unstable_cache(
       };
       const terms = [...new Set(filters.jobCategories.flatMap(category => {
         if (category.startsWith("ISCO08:")) {
-          const occupationLabel = category.split("::")[1];
-          return occupationLabel ? [occupationLabel] : [];
+          const occupationLabel = category.split("::")[1]?.trim();
+          if (!occupationLabel) return [];
+          const singularLabel = occupationLabel.replace(/s$/i, "");
+          return [...new Set([occupationLabel, singularLabel])];
         }
         return familyTerms[category.toLocaleLowerCase()] ?? [category];
       }))].slice(0, 250);
