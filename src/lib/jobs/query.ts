@@ -44,9 +44,9 @@ const getCachedJobs = unstable_cache(
         "co-operative placement": ["co-operative placement", "cooperative placement", "co-op"],
         "work-study": ["work-study", "work study"]
       };
-      const employmentTerms: Prisma.JobPostingWhereInput[] = filters.employmentTypes.flatMap(type => {
+      const employmentTerms: Prisma.JobPostingWhereInput[] = filters.employmentTypes.flatMap((type): Prisma.JobPostingWhereInput[] => {
         const aliases = employmentAliases[type.toLocaleLowerCase()] ?? [type];
-        return aliases.flatMap(alias => [
+        return aliases.flatMap((alias): Prisma.JobPostingWhereInput[] => [
           { employmentType: { contains: alias, mode: "insensitive" } },
           { title: { contains: alias, mode: "insensitive" } }
         ]);
