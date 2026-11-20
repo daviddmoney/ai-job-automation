@@ -127,7 +127,7 @@ function LanguageSingleSelect({ label, value, onChange }: { label: string; value
       {open && <div style={{ maxHeight: 210, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(false); }} style={smallAction}>Clear selection</button>
         {visible.map(option => <button type="button" key={option.value} onClick={() => { onChange(option.value); setQuery(""); setOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: 8, border: 0, background: option.value === value ? "var(--surface, #eef2f7)" : "transparent", color: "inherit", cursor: "pointer" }}>{option.label}</button>)}
-        {query.trim().length >= 2 && !visible.some(option => option.label.toLocaleLowerCase() === query.trim().toLocaleLowerCase() || option.value.toLocaleLowerCase() === query.trim().toLocaleLowerCase()) && <button type="button" onClick={() => { onChange(query.trim()); setQuery(""); setOpen(false); }} style={smallAction}>Use custom language: {query.trim()}</button>}
+        {query.trim().length >= 2 && !visible.length && <button type="button" onClick={() => { onChange(query.trim()); setQuery(""); setOpen(false); }} style={smallAction}>Use custom language: {query.trim()}</button>}
         {!visible.length && <p style={{ padding: 8, fontSize: 13, color: "var(--muted, #667085)" }}>No matching language found.</p>}
         <button type="button" onClick={() => setOpen(false)} style={smallAction}>Close</button>
       </div>}
