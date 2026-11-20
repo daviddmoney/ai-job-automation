@@ -23,14 +23,33 @@ const getCachedJobs = unstable_cache(
     ];
     if (filters.preferredWorkModes.length) and.push({ workMode: { in: filters.preferredWorkModes } });
     if (filters.employmentTypes.length) {
-      const employmentTerms = filters.employmentTypes.flatMap(type => {
-        const terms: Prisma.JobPostingWhereInput[] = [
-          { employmentType: { contains: type, mode: "insensitive" } }
-        ];
-        if (["graduate trainee", "internship", "apprenticeship", "entry-level"].includes(type.toLocaleLowerCase())) {
-          terms.push({ title: { contains: type, mode: "insensitive" } });
-        }
-        return terms;
+      const employmentAliases: Record<string, string[]> = {
+        "full-time": ["full-time", "full time"],
+        "part-time": ["part-time", "part time"],
+        "fixed-term": ["fixed-term", "fixed term"],
+        "contract": ["contract", "contractor", "fixed-term", "fixed term"],
+        "graduate trainee": ["graduate trainee", "graduate program", "graduate programme", "management trainee"],
+        "internship": ["internship", "intern"],
+        "apprenticeship": ["apprenticeship", "apprentice"],
+        "entry-level": ["entry-level", "entry level", "junior", "graduate"],
+        "self-employed": ["self-employed", "self employed"],
+        "on-call": ["on-call", "on call"],
+        "zero-hours": ["zero-hours", "zero hours"],
+        "shift-based": ["shift-based", "shift based", "shift work"],
+        "project-based": ["project-based", "project based"],
+        "gig / platform work": ["gig", "platform work", "independent contractor"],
+        "commission-only": ["commission-only", "commission only", "commission"],
+        "consultancy": ["consultancy", "consultant"],
+        "returnship": ["returnship", "return to work"],
+        "co-operative placement": ["co-operative placement", "cooperative placement", "co-op"],
+        "work-study": ["work-study", "work study"]
+      };
+      const employmentTerms: Prisma.JobPostingWhereInput[] = filters.employmentTypes.flatMap(type => {
+        const aliases = employmentAliases[type.toLocaleLowerCase()] ?? [type];
+        return aliases.flatMap(alias => [
+          { employmentType: { contains: alias, mode: "insensitive" } },
+          { title: { contains: alias, mode: "insensitive" } }
+        ]);
       });
       and.push({ OR: employmentTerms });
     }
