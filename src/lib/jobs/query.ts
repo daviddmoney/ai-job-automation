@@ -48,7 +48,22 @@ const getCachedJobs = unstable_cache(
         "customer service & support": ["customer service", "customer success", "call centre", "technical support", "client relations"],
         "logistics & supply chain": ["logistics", "supply chain", "procurement", "purchasing", "warehouse", "fleet", "inventory"],
         "project & business management": ["project", "programme", "program", "business analyst", "management consultant", "strategy"],
-        "other professional fields": ["architect", "graphic design", "content writer", "journalist", "hospitality", "hotel", "agriculture", "environmental", "security", "government"]
+        "other professional fields": ["architect", "graphic design", "content writer", "journalist", "hospitality", "hotel", "agriculture", "environmental", "security", "government"],
+        "construction & property": ["construction", "quantity surveyor", "site engineer", "building surveyor", "land surveyor", "estate surveyor", "property manager", "real estate", "town planner", "facilities manager", "carpenter", "mason", "plumber", "electrician"],
+        "transport & aviation": ["pilot", "cabin crew", "air traffic", "flight operations", "truck driver", "bus driver", "delivery driver", "train driver", "transport planner", "dispatch", "marine engineer", "ship captain", "port operations"],
+        "science & environment": ["biologist", "chemist", "physicist", "laboratory", "geologist", "environmental", "climate", "conservation", "food scientist", "statistician", "research scientist"],
+        "media & creative": ["graphic artist", "animator", "photographer", "video editor", "film producer", "journalist", "editor", "copywriter", "translator", "interpreter", "musician", "sound engineer", "public relations"],
+        "hospitality & tourism": ["hotel", "chef", "cook", "restaurant", "waiter", "barista", "travel consultant", "tour guide", "event planner", "housekeeping"],
+        "agriculture & food": ["agronomist", "agricultural", "farm manager", "veterinarian", "veterinary", "fisheries", "forestry", "food technologist", "food safety", "butcher", "horticulturist"],
+        "public service & development": ["public administrator", "policy analyst", "diplomat", "development officer", "monitoring and evaluation", "humanitarian", "social worker", "community development", "programme officer", "public health"],
+        "security & emergency services": ["police", "firefighter", "security", "emergency medical", "paramedic", "disaster risk", "occupational safety", "health and safety"],
+        "skilled trades & maintenance": ["automotive mechanic", "diesel mechanic", "welding", "HVAC", "maintenance technician", "machine operator", "CNC", "electronics technician", "telecommunications technician", "appliance repair"],
+        "insurance & actuarial": ["actuary", "insurance", "underwriter", "claims adjuster", "pension administrator"],
+        "retail & e-commerce": ["retail", "store manager", "merchandiser", "e-commerce", "category manager", "buyer"],
+        "energy & utilities": ["petroleum", "mining engineer", "renewable energy", "power systems", "energy analyst", "utilities", "oil and gas"],
+        "sports & recreation": ["sports coach", "athlete", "fitness instructor", "personal trainer", "sports administrator", "sports therapist", "recreation"],
+        "telecommunications": ["telecommunications", "network engineer", "radio frequency", "telecoms", "network operations"],
+        "isco-08 major occupational groups": ["manager", "professional", "technician", "associate professional", "clerical", "service", "sales", "agricultural", "forestry", "fishery", "craft", "trades", "plant operator", "machine operator", "elementary occupation", "armed forces"]
       };
       const terms = [...new Set(filters.jobCategories.flatMap(category => familyTerms[category.toLocaleLowerCase()] ?? [category]))];
       const categoryFilters: Prisma.JobPostingWhereInput[] = terms.flatMap((term): Prisma.JobPostingWhereInput[] => [
