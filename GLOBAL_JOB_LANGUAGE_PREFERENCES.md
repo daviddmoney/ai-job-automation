@@ -36,7 +36,7 @@ The form saves to the existing private per-user preference record. The existing 
 - selected country, region and city values are used for location matching when worldwide search is disabled; and
 - worldwide search remains independently configurable.
 
-**Important matching behavior:** when `worldwideSearch` is enabled, the current query intentionally does not restrict results to selected locations. Users can still use the selected location preferences as profile signals, but should turn worldwide search off when they want location-restricted results. Job-category matching currently uses exact stored category values; broad job-family selection should be mapped to normalized category aliases in a later matching-engine enhancement.
+**Important matching behavior:** when `worldwideSearch` is enabled, the current query intentionally does not restrict results to selected locations. Users can still use the selected location preferences as profile signals, but should turn worldwide search off when they want location-restricted results. Job-family matching now expands common families to keyword aliases. This improves recall but is not a complete occupation taxonomy; aliases should be reviewed and expanded as the vacancy sources and country coverage grow.
 
 ## Language fields
 
