@@ -99,7 +99,7 @@ function LanguageSingleSelect({ label, value, onChange }: { label: string; value
     const controller = new AbortController();
     fetch(`/api/languages?code=${encodeURIComponent(current)}`, { signal: controller.signal })
       .then(response => response.ok ? response.json() : Promise.reject(new Error("Language lookup unavailable")))
-      .then(result => { if (Array.isArray(result?.items)) setOptions(old => [...new Map([...old, ...result.items].map((option: Option) => [option.value, option])).values()]); })
+      .then(result => { if (Array.isArray(result?.items)) setOptions(old => [...new Map<string, Option>([...old, ...result.items].map((option: Option) => [option.value, option] as [string, Option])).values()]); })
       .catch(() => undefined);
     return () => controller.abort();
   }, [value]);
@@ -112,7 +112,7 @@ function LanguageSingleSelect({ label, value, onChange }: { label: string; value
         const response = await fetch(`/api/languages?q=${encodeURIComponent(term)}`, { signal: controller.signal });
         if (!response.ok) throw new Error("Language lookup unavailable");
         const result = await response.json();
-        if (Array.isArray(result?.items)) setOptions([...new Map([...LANGUAGES, ...result.items].map((option: Option) => [option.value, option])).values()]);
+        if (Array.isArray(result?.items)) setOptions([...new Map<string, Option>([...LANGUAGES, ...result.items].map((option: Option) => [option.value, option] as [string, Option])).values()]);
       } catch { if (!controller.signal.aborted) setOptions(LANGUAGES); }
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
@@ -253,7 +253,7 @@ export default function JobPreferencesForm() {
         if (!response.ok) throw new Error("Language lookup unavailable");
         const result = await response.json();
         const remote = Array.isArray(result?.items) ? result.items as Option[] : [];
-        setLanguageOptions([...new Map([...LANGUAGES, ...remote].map(option => [option.value, option])).values()]);
+        setLanguageOptions([...new Map<string, Option>([...LANGUAGES, ...remote].map(option => [option.value, option] as [string, Option])).values()]);
       } catch { if (!controller.signal.aborted) setLanguageOptions(LANGUAGES); }
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
