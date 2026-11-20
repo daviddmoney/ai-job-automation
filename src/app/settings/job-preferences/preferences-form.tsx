@@ -75,16 +75,16 @@ const CATEGORY_OPTIONS: Option[] = Object.entries(CATEGORY_GROUPS).flatMap(([gro
 ]);
 
 function MultiSelect({
-  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…",
+  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…", allowCustom = false,
 }: {
   label: string; hint?: string; options: Option[]; value: string[];
-  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string;
+  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string; allowCustom?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase();
-    return (q ? options.filter(option => option.label.toLocaleLowerCase().includes(q) || option.value.toLocaleLowerCase().includes(q)) : options).slice(0, 100);
+    return (q ? options.filter(option => option.label.toLocaleLowerCase().includes(q) || option.value.toLocaleLowerCase().includes(q)) : options).slice(0, 300);
   }, [options, query]);
   const selectedLabels = value.map(item => options.find(option => option.value === item)?.label || item);
   function toggle(item: string) {
@@ -99,10 +99,10 @@ function MultiSelect({
           {item}<button type="button" aria-label={`Remove ${item}`} onClick={() => toggle(value[index])} style={{ border: 0, background: "transparent", cursor: "pointer", fontWeight: 700 }}>×</button>
         </span>)}
       </div>
-      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
+      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter" && allowCustom) { event.preventDefault(); addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
       {open && !disabled && <div style={{ maxHeight: 230, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 5px 8px" }}>
-          <button type="button" onClick={() => onChange(options.map(option => option.value))} style={smallAction}>Select all shown</button>
+          <button type="button" onClick={() => onChange(options.map(option => option.value))} style={smallAction}>Select all shown</button>\n          {allowCustom && <button type="button" onClick={addCustom} style={smallAction} disabled={!query.trim()}>Add “{query.trim() || "custom"}”</button>}
           <button type="button" onClick={() => setOpen(false)} style={smallAction}>Close</button>
         </div>
         {filtered.map(option => <label key={option.value} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 5px", cursor: "pointer", fontSize: 14 }}>
@@ -110,7 +110,7 @@ function MultiSelect({
           <span>{option.label}</span>
         </label>)}
         {!filtered.length && <p style={{ padding: 8, color: "#667085", fontSize: 13 }}>No matches. Try another search.</p>}
-        {filtered.length === 100 && <p style={{ padding: 6, color: "#667085", fontSize: 12 }}>Showing the first 100 matches. Refine your search.</p>}
+        {filtered.length === 300 && <p style={{ padding: 6, color: "#667085", fontSize: 12 }}>Showing the first 100 matches. Refine your search.</p>}
       </div>}
     </div>
     <span style={{ color: "var(--muted, #667085)", fontSize: 12 }}>{value.length} selected</span>
@@ -218,7 +218,7 @@ export default function JobPreferencesForm() {
     <p style={{ color: "var(--muted, #667085)", lineHeight: 1.6, fontSize: 14 }}>Choose multiple countries, then narrow your search to their states, regions and cities. Location lists are loaded on demand.</p>
     <MultiSelect label="Preferred countries" hint="Search the international country list. Select as many as you like." options={COUNTRIES} value={data.preferredCountries} onChange={countries => setData(old => ({ ...old, preferredCountries: countries, preferredRegions: [], preferredCities: [] }))} placeholder="Search countries…" />
     <MultiSelect label="Preferred states / regions" hint="Options are filtered by your selected countries." options={regionOptions} value={data.preferredRegions} onChange={regions => setData(old => ({ ...old, preferredRegions: regions, preferredCities: [] }))} disabled={!data.preferredCountries.length || locationLoading} placeholder={locationLoading ? "Loading regions…" : "Search states and regions…"} />
-    <MultiSelect label="Preferred cities" hint="Options are filtered by your selected states and regions." options={cityOptions} value={data.preferredCities} onChange={cities => update("preferredCities", cities)} disabled={!data.preferredRegions.length} placeholder="Search cities…" />
+    <MultiSelect label="Preferred cities" hint="Options are filtered by your selected states and regions." options={cityOptions} value={data.preferredCities} onChange={cities => update("preferredCities", cities)} disabled={!data.preferredRegions.length} placeholder="Search cities…" allowCustom />
     {locationError && <p role="status" style={{ color: "#9a6700", fontSize: 13 }}>{locationError}</p>}
     <label style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 22px" }}>
       <input type="checkbox" checked={data.worldwideSearch} onChange={event => update("worldwideSearch", event.target.checked)} />
@@ -227,7 +227,7 @@ export default function JobPreferencesForm() {
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Employment preferences</h2>
-    <MultiSelect label="Employment types" hint="Select one or more contract and employment arrangements." options={EMPLOYMENT_OPTIONS} value={data.employmentTypes} onChange={value => update("employmentTypes", value)} />
+    <MultiSelect label="Employment types" hint="Select one or more contract and employment arrangements." options={EMPLOYMENT_OPTIONS} value={data.employmentTypes} onChange={value => update("employmentTypes", value)} allowCustom />
     <div style={{ display: "grid", gap: 8, marginBottom: 18 }}>
       <strong>Work arrangements</strong>
       <span style={{ color: "var(--muted, #667085)", fontSize: 13 }}>These describe where work is performed, not the employment contract type.</span>
@@ -236,7 +236,7 @@ export default function JobPreferencesForm() {
         {mode.label}
       </label>)}
     </div>
-    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several." options={CATEGORY_OPTIONS} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families and job titles…" />
+    <MultiSelect label="Job categories and job titles" hint="Select a broad job family or specific roles. You can select several." options={CATEGORY_OPTIONS} value={data.jobCategories} onChange={value => update("jobCategories", value)} placeholder="Search job families and job titles…" allowCustom />
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
@@ -254,7 +254,7 @@ export default function JobPreferencesForm() {
         {LANGUAGES.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
       </select>
     </label>)}
-    <MultiSelect label="Additional languages" hint="Languages you can use or understand. Select multiple." options={LANGUAGES} value={data.additionalLanguages} onChange={value => update("additionalLanguages", value)} placeholder="Search languages…" />
+    <MultiSelect label="Additional languages" hint="Languages you can use or understand. Select multiple." options={LANGUAGES} value={data.additionalLanguages} onChange={value => update("additionalLanguages", value)} placeholder="Search languages…" allowCustom />
 
     <button disabled={saving} type="submit" style={{ border: 0, borderRadius: 9, padding: "12px 19px", background: "#24458b", color: "white", fontWeight: 700, cursor: saving ? "wait" : "pointer" }}>
       {saving ? "Saving…" : "Save preferences"}
