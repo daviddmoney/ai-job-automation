@@ -384,7 +384,7 @@ export default function JobPreferencesForm() {
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
-    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Search across ISO 639-1 and ISO 639-3 language identifiers, including thousands of individual living, historical, ancient and constructed languages. Common languages retain their two-letter ISO 639-1 codes; languages without one use their three-letter ISO 639-3 code.</p>
+    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Search across ISO 639-1 and ISO 639-3 language identifiers, including thousands of individual living, historical, ancient and constructed languages. Common languages retain their two-letter ISO 639-1 codes; languages without one use their three-letter ISO 639-3 code.</p><br /><small>Language-code source: SIL International, ISO 639-3 (iso639-3.sil.org).</small>
     {([
       ["interfaceLanguage", "Website interface language"],
       ["nativeLanguage", "Native language"],
