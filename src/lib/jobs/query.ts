@@ -22,8 +22,42 @@ const getCachedJobs = unstable_cache(
       { OR: [{ publishedAt: { gte: since } }, { discoveredAt: { gte: since } }] }
     ];
     if (filters.preferredWorkModes.length) and.push({ workMode: { in: filters.preferredWorkModes } });
-    if (filters.employmentTypes.length) and.push({ employmentType: { in: filters.employmentTypes } });
-    if (filters.jobCategories.length) and.push({ jobCategory: { in: filters.jobCategories } });
+    if (filters.employmentTypes.length) {
+      const employmentTerms = filters.employmentTypes.flatMap(type => {
+        const terms: Prisma.JobPostingWhereInput[] = [
+          { employmentType: { contains: type, mode: "insensitive" } }
+        ];
+        if (["graduate trainee", "internship", "apprenticeship", "entry-level"].includes(type.toLocaleLowerCase())) {
+          terms.push({ title: { contains: type, mode: "insensitive" } });
+        }
+        return terms;
+      });
+      and.push({ OR: employmentTerms });
+    }
+    if (filters.jobCategories.length) {
+      const familyTerms: Record<string, string[]> = {
+        "accounting & finance": ["accountant", "accounting", "finance", "auditor", "audit", "tax", "payroll", "bookkeeper", "treasury", "banking", "investment", "risk"],
+        "technology & software": ["software", "developer", "frontend", "backend", "full-stack", "mobile", "devops", "cloud", "data analyst", "data scientist", "machine learning", "artificial intelligence", "cybersecurity", "IT support", "database"],
+        "administration & operations": ["administrative", "office manager", "operations", "executive assistant", "data entry", "records", "business support"],
+        "human resources": ["human resources", "HR", "recruiter", "talent acquisition", "training", "compensation"],
+        "sales & marketing": ["sales", "marketing", "business development", "SEO", "social media", "brand", "account manager", "market research"],
+        "legal & compliance": ["lawyer", "legal", "paralegal", "compliance", "company secretary"],
+        "engineering & manufacturing": ["engineer", "engineering", "manufacturing", "production", "quality", "process"],
+        "healthcare & medical": ["doctor", "nurse", "pharmacist", "medical", "healthcare", "public health", "physiotherapist", "radiographer"],
+        "education & research": ["teacher", "lecturer", "education", "researcher", "research assistant", "learning and development"],
+        "customer service & support": ["customer service", "customer success", "call centre", "technical support", "client relations"],
+        "logistics & supply chain": ["logistics", "supply chain", "procurement", "purchasing", "warehouse", "fleet", "inventory"],
+        "project & business management": ["project", "programme", "program", "business analyst", "management consultant", "strategy"],
+        "other professional fields": ["architect", "graphic design", "content writer", "journalist", "hospitality", "hotel", "agriculture", "environmental", "security", "government"]
+      };
+      const terms = [...new Set(filters.jobCategories.flatMap(category => familyTerms[category.toLocaleLowerCase()] ?? [category]))];
+      and.push({
+        OR: terms.flatMap(term => [
+          { jobCategory: { contains: term, mode: "insensitive" } },
+          { title: { contains: term, mode: "insensitive" } }
+        ])
+      });
+    }
 
     const locations: Prisma.JobPostingWhereInput[] = [];
     for (const country of filters.preferredCountries) {
