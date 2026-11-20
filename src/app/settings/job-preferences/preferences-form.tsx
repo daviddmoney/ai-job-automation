@@ -110,7 +110,8 @@ function MultiSelect({
       <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter" && allowCustom) { event.preventDefault(); addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
       {open && !disabled && <div style={{ maxHeight: 230, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 5px 8px" }}>
-          <button type="button" onClick={() => onChange(options.map(option => option.value))} style={smallAction}>Select all shown</button>\n          {allowCustom && <button type="button" onClick={addCustom} style={smallAction} disabled={!query.trim()}>Add “{query.trim() || "custom"}”</button>}
+          <button type="button" onClick={() => onChange(options.map(option => option.value))} style={smallAction}>Select all shown</button>
+          {allowCustom && <button type="button" onClick={addCustom} style={smallAction} disabled={!query.trim()}>Add “{query.trim() || "custom"}”</button>}
           <button type="button" onClick={() => setOpen(false)} style={smallAction}>Close</button>
         </div>
         {filtered.map(option => <label key={option.value} style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 5px", cursor: "pointer", fontSize: 14 }}>
