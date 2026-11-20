@@ -107,7 +107,7 @@ function MultiSelect({
           {item}<button type="button" aria-label={`Remove ${item}`} onClick={() => toggle(value[index])} style={{ border: 0, background: "transparent", cursor: "pointer", fontWeight: 700 }}>×</button>
         </span>)}
       </div>
-      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter" && allowCustom) { event.preventDefault(); addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
+      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (allowCustom) addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
       {open && !disabled && <div style={{ maxHeight: 230, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 5px 8px" }}>
           <button type="button" onClick={() => onChange([...new Set([...value, ...filtered.map(option => option.value)])])} style={smallAction}>Select all shown</button>
