@@ -8,14 +8,14 @@ export const runtime = "nodejs";
 const language = z.string().trim().min(2).max(20);
 const schema = z.object({
  preferredCountries: z.array(z.string().trim().min(2).max(100)).max(100).optional(),
- preferredRegions: z.array(z.string().trim().min(2).max(100)).max(200).optional(),
- preferredCities: z.array(z.string().trim().min(2).max(100)).max(200).optional(),
+ preferredRegions: z.array(z.string().trim().min(2).max(240)).max(200).optional(),
+ preferredCities: z.array(z.string().trim().min(2).max(240)).max(200).optional(),
  preferredWorkModes: z.array(z.enum(["ONSITE", "HYBRID", "REMOTE", "FLEXIBLE"])).max(4).optional(),
  employmentTypes: z.array(z.string().trim().min(2).max(80)).max(30).optional(),
- jobCategories: z.array(z.string().trim().min(2).max(100)).max(100).optional(),
+ jobCategories: z.array(z.string().trim().min(2).max(200)).max(100).optional(),
  interfaceLanguage: language.optional(), nativeLanguage: language.nullable().optional(),
  jobDescriptionLanguage: language.optional(), applicationLanguage: language.optional(),
- communicationLanguage: language.optional(), additionalLanguages: z.array(language).max(50).optional(),
+ communicationLanguage: language.optional(), additionalLanguages: z.array(z.string().trim().min(2).max(100)).max(50).optional(),
  worldwideSearch: z.boolean().optional()
 }).strict();
 export async function GET() {
