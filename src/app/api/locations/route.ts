@@ -17,6 +17,14 @@ export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ message: "Sign in required." }, { status: 401 });
 
+  const limit = await consumeRateLimitWithInfo(`location-lookup:${session.user.id}`, 60, 60);
+  if (!limit.allowed) {
+    return NextResponse.json({ message: "Too many location lookups. Please try again shortly." }, {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    });
+  }
+
   const params = request.nextUrl.searchParams;
   const type = params.get("type");
   const country = params.get("country")?.trim() ?? "";
