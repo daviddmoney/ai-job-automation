@@ -74,11 +74,55 @@ const CATEGORY_OPTIONS: Option[] = Object.entries(CATEGORY_GROUPS).flatMap(([gro
   ...titles.map(title => ({ value: title, label: title, group })),
 ]);
 
+function LanguageSingleSelect({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const [query, setQuery] = useState("");
+  const [options, setOptions] = useState<Option[]>(LANGUAGES);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const current = value.trim();
+    if (!current || LANGUAGES.some(option => option.value === current)) return;
+    const controller = new AbortController();
+    fetch(`/api/languages?code=${encodeURIComponent(current)}`, { signal: controller.signal })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("Language lookup unavailable")))
+      .then(result => { if (Array.isArray(result?.items)) setOptions(old => [...new Map([...old, ...result.items].map((option: Option) => [option.value, option])).values()]); })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [value]);
+  useEffect(() => {
+    const term = query.trim();
+    if (term.length < 2) { setOptions(LANGUAGES); return; }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/languages?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Language lookup unavailable");
+        const result = await response.json();
+        if (Array.isArray(result?.items)) setOptions([...new Map([...LANGUAGES, ...result.items].map((option: Option) => [option.value, option])).values()]);
+      } catch { if (!controller.signal.aborted) setOptions(LANGUAGES); }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [query]);
+  const selected = options.find(option => option.value === value);
+  const visible = options.filter(option => !query.trim() || option.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()) || option.value.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0, 100);
+  return <div style={fieldStyle}>
+    <strong>{label}</strong>
+    <div style={{ border: "1px solid var(--border, #ccd3df)", borderRadius: 9, padding: 8, background: "var(--panel, white)", position: "relative" }}>
+      <div style={{ fontSize: 13, color: "var(--muted, #667085)", padding: "2px 5px 5px" }}>{selected?.label || (value ? `Saved language: ${value}` : "No language selected")}</div>
+      <input value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} placeholder={`Search ${label.toLocaleLowerCase()}…`} aria-label={`Search ${label}`} style={{ ...textInput, border: 0, padding: 7 }} />
+      {open && <div style={{ maxHeight: 210, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
+        <button type="button" onClick={() => { onChange(""); setQuery(""); setOpen(false); }} style={smallAction}>Clear selection</button>
+        {visible.map(option => <button type="button" key={option.value} onClick={() => { onChange(option.value); setQuery(""); setOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: 8, border: 0, background: option.value === value ? "var(--surface, #eef2f7)" : "transparent", color: "inherit", cursor: "pointer" }}>{option.label}</button>)}
+        {!visible.length && <p style={{ padding: 8, fontSize: 13, color: "var(--muted, #667085)" }}>No matching language found.</p>}
+        <button type="button" onClick={() => setOpen(false)} style={smallAction}>Close</button>
+      </div>}
+    </div>
+  </div>;
+}
 function MultiSelect({
-  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…", allowCustom = false, allowSelectAll = true,
+  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…", allowCustom = false, allowSelectAll = true, onQueryChange,
 }: {
   label: string; hint?: string; options: Option[]; value: string[];
-  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string; allowCustom?: boolean; allowSelectAll?: boolean;
+  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string; allowCustom?: boolean; allowSelectAll?: boolean; onQueryChange?: (query: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -107,7 +151,7 @@ function MultiSelect({
           {item}<button type="button" aria-label={`Remove ${item}`} onClick={() => toggle(value[index])} style={{ border: 0, background: "transparent", cursor: "pointer", fontWeight: 700 }}>×</button>
         </span>)}
       </div>
-      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (allowCustom) addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
+      <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); onQueryChange?.(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (allowCustom) addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
       {open && !disabled && <div style={{ maxHeight: 230, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 5px 8px" }}>
           {allowSelectAll && <button type="button" onClick={() => onChange([...new Set([...value, ...filtered.map(option => option.value)])])} style={smallAction}>Select all shown</button>}
@@ -153,6 +197,8 @@ export default function JobPreferencesForm() {
   const [cityOptions, setCityOptions] = useState<Option[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [languageSearch, setLanguageSearch] = useState("");
+  const [languageOptions, setLanguageOptions] = useState<Option[]>(LANGUAGES);
 
   useEffect(() => {
     let active = true;
@@ -175,7 +221,7 @@ export default function JobPreferencesForm() {
       catch { return { country, states: [] as string[] }; }
     })).then(results => {
       if (!active) return;
-      const options = results.flatMap(({ country, states }) => states.map(state => ({ value: state, label: `${state}, ${country}`, group: country })));
+      const options = results.flatMap(({ country, states }) => states.map(state => ({ value: `${state}::${country}`, label: `${state}, ${country}`, group: country })));
       setRegionOptions(options);
       if (results.every(result => !result.states.length)) setLocationError("Regional data is temporarily unavailable. You can still use worldwide search and your saved locations.");
     }).finally(() => { if (active) setLocationLoading(false); });
@@ -183,18 +229,38 @@ export default function JobPreferencesForm() {
   }, [data.preferredCountries]);
 
   useEffect(() => {
+    const query = languageSearch.trim();
+    if (query.length < 2) { setLanguageOptions(LANGUAGES); return; }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/languages?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error("Language lookup unavailable");
+        const result = await response.json();
+        const remote = Array.isArray(result?.items) ? result.items as Option[] : [];
+        setLanguageOptions([...new Map([...LANGUAGES, ...remote].map(option => [option.value, option])).values()]);
+      } catch { if (!controller.signal.aborted) setLanguageOptions(LANGUAGES); }
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [languageSearch]);
+
+  useEffect(() => {
     let active = true;
     if (!data.preferredRegions.length) { setCityOptions([]); return () => { active = false; }; }
     const selectedRegions = data.preferredRegions.map(region => {
-      const option = regionOptions.find(item => item.value === region);
-      return option ? { state: region, country: option.group || "" } : null;
+      if (region.includes("::")) {
+        const [state, country] = region.split("::");
+        return state && country ? { state, country } : null;
+      }
+      const matches = regionOptions.filter(item => item.label.split(", ")[0] === region);
+      return matches.length === 1 ? { state: region, country: matches[0].group || "" } : null;
     }).filter((item): item is { state: string; country: string } => Boolean(item?.country));
     Promise.all(selectedRegions.map(async item => {
       try { return { ...item, cities: await loadCities(item.country, item.state) }; }
       catch { return { ...item, cities: [] as string[] }; }
     })).then(results => {
       if (!active) return;
-      setCityOptions(results.flatMap(({ country, state, cities }) => cities.map(city => ({ value: city, label: `${city}, ${state}, ${country}`, group: state }))));
+      setCityOptions(results.flatMap(({ country, state, cities }) => cities.map(city => ({ value: `${city}::${state}::${country}`, label: `${city}, ${state}, ${country}`, group: state }))));
     });
     return () => { active = false; };
   }, [data.preferredRegions, regionOptions]);
@@ -244,21 +310,15 @@ export default function JobPreferencesForm() {
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
-    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Choose different languages for the interface, vacancies, applications and recruiter communications. Language choices are stored as ISO 639-1 codes.</p>
+    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Search across ISO 639-1 and ISO 639-3 language identifiers, including thousands of individual living, historical, ancient and constructed languages. Common languages retain their two-letter ISO 639-1 codes; languages without one use their three-letter ISO 639-3 code.</p>
     {([
       ["interfaceLanguage", "Website interface language"],
       ["nativeLanguage", "Native language"],
       ["jobDescriptionLanguage", "Preferred job-description language"],
       ["applicationLanguage", "Application language"],
       ["communicationLanguage", "Employer communication language"],
-    ] as const).map(([key, label]) => <label key={key} style={fieldStyle}>
-      <strong>{label}</strong>
-      <select style={textInput} value={data[key] ?? ""} onChange={event => update(key, event.target.value as never)}>
-        {key === "nativeLanguage" && <option value="">Select a language (optional)</option>}
-        {LANGUAGES.map(language => <option key={language.value} value={language.value}>{language.label}</option>)}
-      </select>
-    </label>)}
-    <MultiSelect label="Additional languages" hint="Languages you can use or understand. Select multiple." options={LANGUAGES} value={data.additionalLanguages} onChange={value => update("additionalLanguages", value)} placeholder="Search languages…" allowCustom />
+    ] as const).map(([key, label]) => <LanguageSingleSelect key={key} label={label} value={data[key] ?? ""} onChange={value => update(key, value as never)} />)}
+    <MultiSelect label="Additional languages" hint="Languages you can use or understand. Select multiple." options={languageOptions} value={data.additionalLanguages} onChange={value => update("additionalLanguages", value)} placeholder="Search all ISO language codes and names…" allowCustom onQueryChange={setLanguageSearch} />
 
     <button disabled={saving} type="submit" style={{ border: 0, borderRadius: 9, padding: "12px 19px", background: "#24458b", color: "white", fontWeight: 700, cursor: saving ? "wait" : "pointer" }}>
       {saving ? "Saving…" : "Save preferences"}
