@@ -30,9 +30,9 @@ The location provider is a third-party dependency. Its coverage, uptime, rate li
 ## Preference and job matching behavior
 
 The form saves to the existing private per-user preference record. The existing jobs page already reads these fields and passes them to `getRecentJobsForPreferences`:
-- selected employment types filter `JobPosting.employmentType`;
+- selected employment types are matched case-insensitively against `JobPosting.employmentType`; graduate trainee, internship, apprenticeship and entry-level selections can also match job titles;
 - selected work arrangements filter `JobPosting.workMode`;
-- selected job categories/titles filter `JobPosting.jobCategory`;
+- selected job families expand to relevant role keywords and are matched against `JobPosting.jobCategory` and job titles; specific/custom titles are matched against both fields;
 - selected country, region and city values are used for location matching when worldwide search is disabled; and
 - worldwide search remains independently configurable.
 
