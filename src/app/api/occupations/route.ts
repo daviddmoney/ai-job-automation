@@ -100,16 +100,19 @@ export async function GET(request: NextRequest) {
   }
 
   const query = (request.nextUrl.searchParams.get("q") || "").trim().toLocaleLowerCase();
-  if (query.length < 2 || query.length > 100) {
+  const code = (request.nextUrl.searchParams.get("code") || "").trim();
+  if (query.length > 100 || code.length > 120 || (!code && query.length < 2)) {
     return NextResponse.json({ items: [], source: "ILO ISCO-08" });
   }
 
   try {
     const catalogue = await getIscoOptions();
-    const items = catalogue.filter(option =>
-      option.label.toLocaleLowerCase().includes(query) ||
-      option.value.toLocaleLowerCase().includes(query)
-    ).slice(0, 100);
+    const items = code
+      ? catalogue.filter(option => option.value === code).slice(0, 1)
+      : catalogue.filter(option =>
+          option.label.toLocaleLowerCase().includes(query) ||
+          option.value.toLocaleLowerCase().includes(query)
+        ).slice(0, 100);
     return NextResponse.json({ items, source: "ILO ISCO-08", count: items.length }, {
       headers: { "Cache-Control": "private, max-age=300, stale-while-revalidate=3600" },
     });
