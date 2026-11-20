@@ -177,8 +177,6 @@ export default function JobPreferencesForm() {
       if (!active) return;
       const options = results.flatMap(({ country, states }) => states.map(state => ({ value: state, label: `${state}, ${country}`, group: country })));
       setRegionOptions(options);
-      const valid = new Set(options.map(option => option.value));
-      setData(old => ({ ...old, preferredRegions: old.preferredRegions.filter(region => valid.has(region)) }));
       if (results.every(result => !result.states.length)) setLocationError("Regional data is temporarily unavailable. You can still use worldwide search and your saved locations.");
     }).finally(() => { if (active) setLocationLoading(false); });
     return () => { active = false; };
