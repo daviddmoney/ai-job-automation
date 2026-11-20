@@ -218,6 +218,46 @@ export default function JobPreferencesForm() {
   const [occupationOptions, setOccupationOptions] = useState<Option[]>(CATEGORY_OPTIONS);
 
   useEffect(() => {
+    const missing = data.additionalLanguages.filter(code =>
+      !LANGUAGES.some(option => option.value === code)
+    );
+    if (!missing.length) return;
+    const controller = new AbortController();
+    Promise.all(missing.map(async code => {
+      try {
+        const response = await fetch(`/api/languages?code=${encodeURIComponent(code)}`, { signal: controller.signal });
+        if (!response.ok) return [];
+        const result = await response.json();
+        return Array.isArray(result?.items) ? result.items as Option[] : [];
+      } catch { return []; }
+    })).then(results => {
+      if (controller.signal.aborted) return;
+      const remote = results.flat();
+      setLanguageOptions(old => [...new Map<string, Option>([...old, ...remote].map(option => [option.value, option] as [string, Option])).values()]);
+    });
+    return () => controller.abort();
+  }, [data.additionalLanguages]);
+
+  useEffect(() => {
+    const selected = data.jobCategories.filter(value => value.startsWith("ISCO08:"));
+    if (!selected.length) return;
+    const controller = new AbortController();
+    Promise.all(selected.map(async code => {
+      try {
+        const response = await fetch(`/api/occupations?code=${encodeURIComponent(code)}`, { signal: controller.signal });
+        if (!response.ok) return [];
+        const result = await response.json();
+        return Array.isArray(result?.items) ? result.items as Option[] : [];
+      } catch { return []; }
+    })).then(results => {
+      if (controller.signal.aborted) return;
+      const remote = results.flat();
+      setOccupationOptions(old => [...new Map<string, Option>([...old, ...remote].map(option => [option.value, option] as [string, Option])).values()]);
+    });
+    return () => controller.abort();
+  }, [data.jobCategories]);
+
+  useEffect(() => {
     let active = true;
     fetch("/api/preferences/jobs").then(response => response.json()).then(result => {
       if (active && result.preferences) setData({ ...empty, ...result.preferences });
