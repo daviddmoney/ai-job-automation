@@ -49,8 +49,11 @@ export async function GET(request: NextRequest) {
     const data = result && typeof result === "object" && "data" in result
       ? (result as { data: unknown }).data
       : null;
-    const items = type === "states" && data && typeof data === "object" && "states" in data
-      ? cleanItems((data as { states: Array<{ name?: unknown }> }).states?.map(item => item?.name))
+    const stateRows = data && typeof data === "object" && "states" in data
+      ? (data as { states?: unknown }).states
+      : null;
+    const items = type === "states" && Array.isArray(stateRows)
+      ? cleanItems(stateRows.map(item => item && typeof item === "object" && "name" in item ? (item as { name: unknown }).name : null))
       : type === "cities" ? cleanItems(data) : [];
 
     return NextResponse.json({ items }, {
