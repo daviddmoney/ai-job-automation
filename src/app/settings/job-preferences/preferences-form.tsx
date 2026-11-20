@@ -90,6 +90,14 @@ function MultiSelect({
   function toggle(item: string) {
     onChange(value.includes(item) ? value.filter(x => x !== item) : [...value, item]);
   }
+  function addCustom() {
+    const item = query.trim();
+    if (!allowCustom || !item) return;
+    const existing = options.find(option => option.value.toLocaleLowerCase() === item.toLocaleLowerCase());
+    const normalized = existing?.value || item;
+    if (!value.includes(normalized)) onChange([...value, normalized]);
+    setQuery("");
+  }
   return <div style={{ display: "grid", gap: 7, marginBottom: 18, opacity: disabled ? 0.58 : 1 }}>
     <strong>{label}</strong>
     {hint && <span style={{ color: "var(--muted, #667085)", fontSize: 13 }}>{hint}</span>}
@@ -110,7 +118,7 @@ function MultiSelect({
           <span>{option.label}</span>
         </label>)}
         {!filtered.length && <p style={{ padding: 8, color: "#667085", fontSize: 13 }}>No matches. Try another search.</p>}
-        {filtered.length === 300 && <p style={{ padding: 6, color: "#667085", fontSize: 12 }}>Showing the first 100 matches. Refine your search.</p>}
+        {filtered.length === 300 && <p style={{ padding: 6, color: "#667085", fontSize: 12 }}>Showing the first 300 matches. Refine your search.</p>}
       </div>}
     </div>
     <span style={{ color: "var(--muted, #667085)", fontSize: 12 }}>{value.length} selected</span>
@@ -217,7 +225,7 @@ export default function JobPreferencesForm() {
     <h2 style={{ fontSize: 21, marginTop: 0 }}>Location preferences</h2>
     <p style={{ color: "var(--muted, #667085)", lineHeight: 1.6, fontSize: 14 }}>Choose multiple countries, then narrow your search to their states, regions and cities. Location lists are loaded on demand.</p>
     <MultiSelect label="Preferred countries" hint="Search the international country list. Select as many as you like." options={COUNTRIES} value={data.preferredCountries} onChange={countries => setData(old => ({ ...old, preferredCountries: countries, preferredRegions: [], preferredCities: [] }))} placeholder="Search countries…" />
-    <MultiSelect label="Preferred states / regions" hint="Options are filtered by your selected countries." options={regionOptions} value={data.preferredRegions} onChange={regions => setData(old => ({ ...old, preferredRegions: regions, preferredCities: [] }))} disabled={!data.preferredCountries.length || locationLoading} placeholder={locationLoading ? "Loading regions…" : "Search states and regions…"} />
+    <MultiSelect label="Preferred states / regions" hint="Options are filtered by your selected countries." options={regionOptions} value={data.preferredRegions} onChange={regions => setData(old => ({ ...old, preferredRegions: regions, preferredCities: [] }))} disabled={!data.preferredCountries.length || locationLoading} placeholder={locationLoading ? "Loading regions…" : "Search states and regions…"} allowCustom />
     <MultiSelect label="Preferred cities" hint="Options are filtered by your selected states and regions." options={cityOptions} value={data.preferredCities} onChange={cities => update("preferredCities", cities)} disabled={!data.preferredRegions.length} placeholder="Search cities…" allowCustom />
     {locationError && <p role="status" style={{ color: "#9a6700", fontSize: 13 }}>{locationError}</p>}
     <label style={{ display: "flex", alignItems: "center", gap: 10, margin: "4px 0 22px" }}>
