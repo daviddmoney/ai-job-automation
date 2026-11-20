@@ -15,7 +15,7 @@ const schema = z.object({
  jobCategories: z.array(z.string().trim().min(2).max(100)).max(100).optional(),
  interfaceLanguage: language.optional(), nativeLanguage: language.nullable().optional(),
  jobDescriptionLanguage: language.optional(), applicationLanguage: language.optional(),
- communicationLanguage: language.optional(), additionalLanguages: z.array(language).max(50).optional(),
+ communicationLanguage: language.optional(), additionalLanguages: z.array(z.string().trim().min(2).max(100)).max(50).optional(),
  worldwideSearch: z.boolean().optional()
 }).strict();
 export async function GET() {
