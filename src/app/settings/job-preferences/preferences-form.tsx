@@ -131,20 +131,17 @@ const fieldStyle = { display: "grid", gap: 7, marginBottom: 18 } as const;
 const textInput = { width: "100%", padding: 11, border: "1px solid var(--border, #ccd3df)", borderRadius: 9, background: "var(--panel, white)", color: "inherit" } as const;
 
 async function loadStates(country: string): Promise<string[]> {
-  const response = await fetch("https://countriesnow.space/api/v0.1/countries/states", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ country }),
-  });
+  const response = await fetch(`/api/locations?type=states&country=${encodeURIComponent(country)}`);
   if (!response.ok) throw new Error("Could not load regions");
   const result = await response.json();
-  return Array.isArray(result?.data?.states) ? result.data.states.map((item: { name: string }) => item.name) : [];
+  return Array.isArray(result?.items) ? result.items.filter((item: unknown): item is string => typeof item === "string") : [];
 }
 async function loadCities(country: string, state: string): Promise<string[]> {
-  const response = await fetch("https://countriesnow.space/api/v0.1/countries/state/cities", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ country, state }),
-  });
+  const params = new URLSearchParams({ type: "cities", country, state });
+  const response = await fetch(`/api/locations?${params.toString()}`);
   if (!response.ok) throw new Error("Could not load cities");
   const result = await response.json();
-  return Array.isArray(result?.data) ? result.data.filter((item: unknown): item is string => typeof item === "string") : [];
+  return Array.isArray(result?.items) ? result.items.filter((item: unknown): item is string => typeof item === "string") : [];
 }
 
 export default function JobPreferencesForm() {
