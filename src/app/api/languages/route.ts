@@ -16,14 +16,27 @@ type LanguageRow = {
 
 const languages = languageRows as LanguageRow[];
 
+function nativeName(language: LanguageRow): string {
+  if (!language.iso6391) return "";
+  try {
+    return new Intl.DisplayNames([language.iso6391], { type: "language" }).of(language.iso6391) || "";
+  } catch {
+    return "";
+  }
+}
+
 function toOption(language: LanguageRow, requestedCode?: string) {
   const value = requestedCode && [language.iso6391, language.iso6393].includes(requestedCode)
     ? requestedCode
     : language.iso6391 || language.iso6393;
+  const native = nativeName(language);
+  const name = native && native.toLocaleLowerCase() !== language.name.toLocaleLowerCase()
+    ? `${language.name} · ${native}`
+    : language.name;
   const codeLabel = language.iso6391
     ? `${language.iso6393} · ISO 639-1 ${language.iso6391}`
     : `${language.iso6393} · ISO 639-3`;
-  return { value, label: `${language.name} (${codeLabel})` };
+  return { value, label: `${name} (${codeLabel})`, native };
 }
 
 export async function GET(request: NextRequest) {
@@ -56,6 +69,7 @@ export async function GET(request: NextRequest) {
     matches = languages
       .filter(language =>
         language.name.toLocaleLowerCase().includes(query) ||
+        nativeName(language).toLocaleLowerCase().includes(query) ||
         language.iso6393.toLocaleLowerCase().startsWith(query) ||
         language.iso6391?.toLocaleLowerCase() === query
       )
@@ -73,9 +87,9 @@ export async function GET(request: NextRequest) {
       .slice(0, 100);
   }
 
-  const items = [...new Map<string, { value: string; label: string }>(matches.map(language => {
+  const items = [...new Map<string, { value: string; label: string; native: string }>(matches.map(language => {
     const option = toOption(language, code || undefined);
-    return [option.value, option] as [string, { value: string; label: string }];
+    return [option.value, option] as [string, { value: string; label: string; native: string }];
   })).values()];
 
   return NextResponse.json({ items, source: "ISO 639-3 / ISO 639-1", count: items.length }, {
