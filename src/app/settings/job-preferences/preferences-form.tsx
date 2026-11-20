@@ -75,10 +75,10 @@ const CATEGORY_OPTIONS: Option[] = Object.entries(CATEGORY_GROUPS).flatMap(([gro
 ]);
 
 function MultiSelect({
-  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…", allowCustom = false,
+  label, hint, options, value, onChange, disabled = false, placeholder = "Search and select…", allowCustom = false, allowSelectAll = true,
 }: {
   label: string; hint?: string; options: Option[]; value: string[];
-  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string; allowCustom?: boolean;
+  onChange: (value: string[]) => void; disabled?: boolean; placeholder?: string; allowCustom?: boolean; allowSelectAll?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -110,7 +110,7 @@ function MultiSelect({
       <input disabled={disabled} value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); if (allowCustom) addCustom(); } }} placeholder={placeholder} aria-label={`Search ${label}`} style={{ width: "100%", border: 0, outline: "none", padding: 7, background: "transparent", color: "inherit" }} />
       {open && !disabled && <div style={{ maxHeight: 230, overflowY: "auto", borderTop: "1px solid var(--border, #e5e9f0)", marginTop: 5, paddingTop: 5 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 5px 8px" }}>
-          <button type="button" onClick={() => onChange([...new Set([...value, ...filtered.map(option => option.value)])])} style={smallAction}>Select all shown</button>
+          {allowSelectAll && <button type="button" onClick={() => onChange([...new Set([...value, ...filtered.map(option => option.value)])])} style={smallAction}>Select all shown</button>}
           {allowCustom && <button type="button" onClick={addCustom} style={smallAction} disabled={!query.trim()}>Add “{query.trim() || "custom"}”</button>}
           <button type="button" onClick={() => setOpen(false)} style={smallAction}>Close</button>
         </div>
@@ -220,7 +220,7 @@ export default function JobPreferencesForm() {
   return <form onSubmit={save} style={{ background: "var(--panel)", border: "1px solid var(--border, #e5e9f0)", borderRadius: 14, padding: 22 }}>
     <h2 style={{ fontSize: 21, marginTop: 0 }}>Location preferences</h2>
     <p style={{ color: "var(--muted, #667085)", lineHeight: 1.6, fontSize: 14 }}>Choose multiple countries, then narrow your search to their states, regions and cities. Location lists are loaded on demand.</p>
-    <MultiSelect label="Preferred countries" hint="Search the international country list. Select as many as you like." options={COUNTRIES} value={data.preferredCountries} onChange={countries => setData(old => ({ ...old, preferredCountries: countries, preferredRegions: [], preferredCities: [] }))} placeholder="Search countries…" />
+    <MultiSelect label="Preferred countries" hint="Search the international country list. Select as many as you like." options={COUNTRIES} value={data.preferredCountries} onChange={countries => setData(old => ({ ...old, preferredCountries: countries, preferredRegions: [], preferredCities: [] }))} placeholder="Search countries…" allowSelectAll={false} />
     <MultiSelect label="Preferred states / regions" hint="Options are filtered by your selected countries." options={regionOptions} value={data.preferredRegions} onChange={regions => setData(old => ({ ...old, preferredRegions: regions, preferredCities: [] }))} disabled={!data.preferredCountries.length || locationLoading} placeholder={locationLoading ? "Loading regions…" : "Search states and regions…"} allowCustom />
     <MultiSelect label="Preferred cities" hint="Options are filtered by your selected states and regions." options={cityOptions} value={data.preferredCities} onChange={cities => update("preferredCities", cities)} disabled={!data.preferredRegions.length} placeholder="Search cities…" allowCustom />
     {locationError && <p role="status" style={{ color: "#9a6700", fontSize: 13 }}>{locationError}</p>}
