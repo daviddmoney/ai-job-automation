@@ -64,6 +64,7 @@ model User {
   emailVerificationAttempts   Int                 @default(0)
   createdAt                   DateTime            @default(now())
   updatedAt                   DateTime            @updatedAt
+  sessionVersion               Int                 @default(0)
   accounts                    Account[]
   sessions                    Session[]
   profile                     JobProfile?
@@ -250,9 +251,12 @@ model AuditEvent {
   resource   String?
   resourceId String?
   ipHash     String?
+  actorEmail String?
+  details    String?  @db.Text
   createdAt  DateTime @default(now())
 
   @@index([userId, createdAt])
+  @@index([action, createdAt])
 }
 
 model RateLimitBucket {

@@ -75,6 +75,66 @@ export function otpDigest(code: string) {
   return createHash("sha256").update(`${secret}:${code}`).digest("hex");
 }
 
+/** HMAC-keyed digest for six-digit email OTPs; recovery-code hashes remain compatible. */
+export function emailSecondFactorDigest(code: string, userId: string, purpose: "login" | "activation" | "recovery" | "disable" = "login") {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) throw new Error("AUTH_SECRET_NOT_CONFIGURED");
+  return createHmac("sha256", secret).update(`email-second-factor:${purpose}:v1:${userId}:${code}`, "utf8").digest("hex");
+}
+
+/**
+ * Atomically consumes an email second-factor code or increments its failed
+ * attempt counter. When activate=true, successful consumption enables email
+ * 2FA in the same database statement.
+ */
+type RawQueryClient = {
+  $queryRaw<T = unknown>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T>;
+};
+export async function consumeEmailSecondFactorCode(
+  db: RawQueryClient,
+  userId: string,
+  suppliedDigest: string,
+  activate = false
+): Promise<boolean> {
+  const rows = await db.$queryRaw<Array<{ accepted: boolean }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEnabled" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN TRUE ELSE "twoFactorEnabled" END,
+      "twoFactorMethod" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 'EMAIL' ELSE "twoFactorMethod" END,
+      "twoFactorSecretCipher" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorSecretCipher" END,
+      "twoFactorPendingSecretCipher" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorPendingSecretCipher" END,
+      "recoveryCodeHashes" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN ARRAY[]::text[] ELSE "recoveryCodeHashes" END,
+      "twoFactorLastTotpCounter" = CASE WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL ELSE "twoFactorLastTotpCounter" END,
+      "twoFactorEmailCodeHash" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeHash"
+      END,
+      "twoFactorEmailCodeExpiresAt" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeExpiresAt"
+      END,
+      "twoFactorEmailCodeAttempts" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 0
+        ELSE "twoFactorEmailCodeAttempts" + 1
+      END,
+      "sessionVersion" = CASE
+        WHEN ${activate} AND "twoFactorEmailCodeHash" = ${suppliedDigest} THEN "sessionVersion" + 1
+        ELSE "sessionVersion"
+      END,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE
+      "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
+      AND ((${activate} = TRUE AND "twoFactorEnabled" = FALSE)
+        OR (${activate} = FALSE AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL'))
+      AND "twoFactorEmailCodeHash" IS NOT NULL
+      AND "twoFactorEmailCodeExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
+      AND "twoFactorEmailCodeAttempts" < 5
+    RETURNING ("twoFactorEmailCodeHash" IS NULL) AS accepted
+  `;
+  return rows[0]?.accepted === true;
+}
+
 export function newEmailOtp() {
   return String(randomInt(1_000_000)).padStart(6, "0");
 }
@@ -143,3 +203,101 @@ export function totpUri(secret: string, email: string) {
   return `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
 }
 
+
+/**
+ * Email fallback recovery for a user who has lost their TOTP authenticator and
+ * recovery codes. Requires a verified email, password proof at the route, a
+ * fresh account-bound recovery OTP, expiry and the same five-attempt ceiling.
+ * Successful recovery disables TOTP and revokes all existing JWT sessions.
+ */
+export async function consumeEmailSecondFactorRecoveryCode(
+  db: RawQueryClient,
+  userId: string,
+  suppliedDigest: string
+): Promise<boolean> {
+  const rows = await db.$queryRaw<Array<{ accepted: boolean }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEnabled" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN FALSE
+        ELSE "twoFactorEnabled"
+      END,
+      "twoFactorMethod" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorMethod"
+      END,
+      "twoFactorSecretCipher" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorSecretCipher"
+      END,
+      "twoFactorPendingSecretCipher" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorPendingSecretCipher"
+      END,
+      "recoveryCodeHashes" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN ARRAY[]::text[]
+        ELSE "recoveryCodeHashes"
+      END,
+      "twoFactorLastTotpCounter" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorLastTotpCounter"
+      END,
+      "twoFactorEmailCodeHash" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeHash"
+      END,
+      "twoFactorEmailCodeExpiresAt" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN NULL
+        ELSE "twoFactorEmailCodeExpiresAt"
+      END,
+      "twoFactorEmailCodeAttempts" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN 0
+        ELSE "twoFactorEmailCodeAttempts" + 1
+      END,
+      "sessionVersion" = CASE
+        WHEN "twoFactorEmailCodeHash" = ${suppliedDigest} THEN "sessionVersion" + 1
+        ELSE "sessionVersion"
+      END,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE
+      "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
+      AND "twoFactorEnabled" = TRUE
+      AND "twoFactorMethod" = 'TOTP'
+      AND "twoFactorEmailCodeHash" IS NOT NULL
+      AND "twoFactorEmailCodeExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')
+      AND "twoFactorEmailCodeAttempts" < 5
+    RETURNING ("twoFactorEmailCodeHash" IS NULL) AS accepted
+  `;
+  return rows[0]?.accepted === true;
+}
+
+/** Issue an account-bound email OTP with a database-clock expiry. */
+export async function issueEmailSecondFactorCode(
+  db: RawQueryClient,
+  userId: string,
+  digest: string,
+  expiresMinutes: number,
+  purpose: "login" | "activation" | "recovery" | "disable"
+): Promise<boolean> {
+  if (!Number.isInteger(expiresMinutes) || expiresMinutes < 1 || expiresMinutes > 15) {
+    throw new Error("INVALID_EMAIL_2FA_EXPIRY");
+  }
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    UPDATE "User"
+    SET
+      "twoFactorEmailCodeHash" = ${digest},
+      "twoFactorEmailCodeExpiresAt" = (clock_timestamp() AT TIME ZONE 'UTC') + (${expiresMinutes} * INTERVAL '1 minute'),
+      "twoFactorEmailCodeAttempts" = 0,
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    WHERE "id" = ${userId}
+      AND "emailVerified" IS NOT NULL
+      AND (
+        (${purpose} IN ('login', 'disable') AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'EMAIL')
+        OR (${purpose} = 'activation' AND "twoFactorEnabled" = FALSE)
+        OR (${purpose} = 'recovery' AND "twoFactorEnabled" = TRUE AND "twoFactorMethod" = 'TOTP')
+      )
+    RETURNING "id"
+  `;
+  return rows.length === 1;
+}

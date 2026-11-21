@@ -1,10 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { consumeEmailVerificationCode, createEmailVerificationExpiry } from "../src/lib/email-verification.ts";
+import { consumeEmailVerificationCode, createEmailVerificationExpiry, emailVerificationCodeDigest } from "../src/lib/email-verification.ts";
 
 class MemoryDatabase {
-  constructor({ digest = "correct", expiresAt = new Date(Date.now() + 60_000), attempts = 0 } = {}) {
+  constructor({ digest = "correct", expiresAt = new Date(Date.now() + 60_000), attempts = 0, now = () => new Date() } = {}) {
     this.state = { email: "otp@example.invalid", emailVerified: null, emailVerificationCodeHash: digest, emailVerificationExpiresAt: expiresAt, emailVerificationAttempts: attempts };
+    this.now = now;
     this.calls = 0; this.failOnCall = null; this.queries = [];
   }
   async $queryRaw(strings, ...values) {
@@ -23,7 +24,7 @@ class MemoryDatabase {
     assert.equal(email, s.email);
     if (sql.includes('SET\n      "emailVerified" = verification_time.now')) {
       if (s.emailVerified !== null || s.emailVerificationCodeHash !== digest
-        || !(s.emailVerificationExpiresAt instanceof Date) || s.emailVerificationExpiresAt <= new Date()
+        || !(s.emailVerificationExpiresAt instanceof Date) || s.emailVerificationExpiresAt <= this.now()
         || s.emailVerificationAttempts >= 5) return [];
       s.emailVerified = new Date();
       s.emailVerificationCodeHash = null;
@@ -32,7 +33,7 @@ class MemoryDatabase {
       return [{ id: "user-1" }];
     }
     if (s.emailVerified === null && s.emailVerificationCodeHash !== digest
-      && s.emailVerificationExpiresAt instanceof Date && s.emailVerificationExpiresAt > new Date()
+      && s.emailVerificationExpiresAt instanceof Date && s.emailVerificationExpiresAt > this.now()
       && s.emailVerificationAttempts < 5) {
       s.emailVerificationAttempts += 1;
     }
@@ -94,4 +95,43 @@ test("9. database failure leaves the account unverified and OTP unconsumed", asy
   await assert.rejects(() => consume(database), /simulated database failure/);
   assert.equal(database.state.emailVerified, null); assert.equal(database.state.emailVerificationCodeHash, "correct");
   assert.ok(database.state.emailVerificationExpiresAt instanceof Date); assert.equal(database.state.emailVerificationAttempts, 0);
+});
+
+test("OTP at the exact expiry boundary is rejected", async () => {
+  const expiry = new Date("2035-01-01T00:05:00.000Z");
+  const database = new MemoryDatabase({
+    expiresAt: expiry,
+    now: () => expiry,
+  });
+
+  assert.equal(await consume(database), false);
+  assert.equal(database.state.emailVerified, null);
+  assert.equal(database.state.emailVerificationAttempts, 0);
+});
+
+test("OTP digest is keyed, account-bound and requires a configured server secret", () => {
+  const previousSecret = process.env.AUTH_SECRET;
+
+  try {
+    delete process.env.AUTH_SECRET;
+
+    assert.throws(
+      () => emailVerificationCodeDigest("123456", "otp-regression@example.test"),
+      /AUTH_SECRET_NOT_CONFIGURED/
+    );
+
+    process.env.AUTH_SECRET = "test-only-secret-with-at-least-32-characters";
+
+    const digest = emailVerificationCodeDigest("123456", "otp-regression@example.test");
+
+    assert.match(digest, /^[a-f0-9]{64}$/);
+    assert.notEqual(digest, emailVerificationCodeDigest("123457", "otp-regression@example.test"));
+    assert.notEqual(digest, emailVerificationCodeDigest("123456", "other@example.test"));
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.AUTH_SECRET;
+    } else {
+      process.env.AUTH_SECRET = previousSecret;
+    }
+  }
 });

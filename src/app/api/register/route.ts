@@ -2,16 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerAccount } from "@/lib/registration";
 import { consumeIndependentRateLimits } from "@/lib/rate-limit";
 import { readLimitedJson } from "@/lib/request-body";
+import { isSameOriginRequest } from "@/lib/request-security";
 
 export const runtime = "nodejs";
-function sameOrigin(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  try { return new URL(origin).host === request.headers.get("host"); } catch { return false; }
-}
-
 export async function POST(request: NextRequest) {
-  if (!sameOrigin(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
+  if (!isSameOriginRequest(request)) return NextResponse.json({ message: "Request rejected." }, { status: 403 });
   const parsedBody = await readLimitedJson(request, 16 * 1024);
   if (!parsedBody.ok) return NextResponse.json({ message: parsedBody.message }, { status: parsedBody.status });
   const email = typeof parsedBody.data === "object" && parsedBody.data !== null && "email" in parsedBody.data && typeof parsedBody.data.email === "string"

@@ -39,17 +39,30 @@ export async function POST(request: NextRequest) {
     if (counter === null) return NextResponse.json({ message: "Verification failed." }, { status: 403 });
     const codes = Array.from({ length: 10 }, () => randomBytes(8).toString("hex").toUpperCase());
     const hashes = codes.map(otpDigest);
-    const updated = await prisma.user.updateMany({
-      where: {
-        id: user.id,
-        twoFactorEnabled: true,
-        twoFactorMethod: "TOTP",
-        twoFactorSecretCipher: user.twoFactorSecretCipher,
-        OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }]
-      },
-      data: { recoveryCodeHashes: hashes, twoFactorLastTotpCounter: BigInt(counter) }
+    const updated = await prisma.$transaction(async (tx) => {
+      const changed = await tx.user.updateMany({
+        where: {
+          id: user.id,
+          twoFactorEnabled: true,
+          twoFactorMethod: "TOTP",
+          twoFactorSecretCipher: user.twoFactorSecretCipher,
+          OR: [{ twoFactorLastTotpCounter: null }, { twoFactorLastTotpCounter: { lt: BigInt(counter) } }]
+        },
+        data: { recoveryCodeHashes: hashes, twoFactorLastTotpCounter: BigInt(counter) }
+      });
+      if (changed.count !== 1) return false;
+      await tx.auditEvent.create({
+        data: {
+          userId: user.id,
+          actorEmail: user.email ?? undefined,
+          action: "TWO_FACTOR_RECOVERY_CODES_ROTATED",
+          resource: "User",
+          resourceId: user.id
+        }
+      });
+      return true;
     });
-    if (updated.count !== 1) return NextResponse.json({ message: "This authenticator code has already been used. Wait for a new code and try again." }, { status: 409 });
+    if (!updated) return NextResponse.json({ message: "This authenticator code has already been used. Wait for a new code and try again." }, { status: 409 });
     return NextResponse.json({ message: "Save these recovery codes securely. Each code can be used once; they will not be shown again.", recoveryCodes: codes });
   } catch {
     return NextResponse.json({ message: "Unable to regenerate recovery codes." }, { status: 500 });

@@ -1,36 +1,44 @@
-# Authentication implementation notes
+# Authentication implementation and production gates
 
-This repository now contains the initial Auth.js integration.
+This document records the authentication controls implemented on the security PR branch and the external configuration checks still required. It is not an independent security certification.
 
-## Enabled foundations
-- Credentials sign-in normalizes email and verifies the stored password hash using Argon2.
-- Google OAuth is registered only when both server-side Google credentials are configured.
-- Auth.js uses JWT sessions; the application session exposes the user's ID and role.
-- Prisma adapter models are included for OAuth accounts, database sessions, and verification tokens.
+## Implemented in the security PR
 
-## Remaining work before production
-1. Add rate-limit bucket cleanup/monitoring and validate thresholds behind the production reverse proxy.
-2. Add backup-code issuance/rotation, account recovery, and reauthentication-protected 2FA disable/change flows.
-3. Add audited staff provisioning. Public registration must never allow a user to choose the STAFF role.
-4. Complete secure-cookie review, session revocation, security event monitoring, and OAuth account-linking review.
-5. Add automated tests for login, OTP replay, OAuth account linking, role escalation, session expiry, and cross-account access.
-6. Run Prisma migrations and a production build against a configured test database.
+- Credentials sign-in normalizes email and verifies Argon2id password hashes.
+- Public registration assigns USER server-side; role values supplied by clients are not accepted.
+- Google OAuth is enabled only when both provider credentials are configured, requires Google's explicit `email_verified === true` claim, and does not enable dangerous email-based account linking.
+- OAuth sign-in is denied for accounts with 2FA enabled until a complete OAuth second-factor challenge flow exists.
+- JWT sessions use an eight-hour maximum lifetime, secure cookies in production, and a database-backed `sessionVersion` check on every session read. Missing, stale, or unverifiable versions fail closed.
+- Password reset uses a random one-time token, HMAC digest at rest, 15-minute expiry, generic request responses, rate limits, one-time transactional consumption, an audit event, and session revocation.
+- Email verification uses account-bound HMAC digests, database-clock issuance and expiry, one-time atomic consumption, and a five-attempt limit.
+- Email second-factor OTPs use account- and purpose-bound HMAC digests, database-clock issuance and expiry, atomic consumption, and five-attempt enforcement.
+- TOTP secrets are encrypted using AES-256-GCM. TOTP replay counters are stored atomically.
+- TOTP recovery codes are random, stored hashed, shown once, rotated only after password and fresh TOTP proof, and audited.
+- Email fallback recovery for lost TOTP/recovery codes requires the account password and a one-time code sent to the verified email; it disables TOTP and revokes all sessions.
+- 2FA setup and disable operations require password reauthentication; disable additionally requires current TOTP, a freshly issued email OTP, or a one-time recovery code. 2FA changes are audited and revoke sessions.
+- Staff provisioning requires explicit confirmation, target account verification, an operator email and reason. After the first explicitly approved bootstrap, the actor must be an existing verified STAFF user. The promotion is transactional, revokes the target's sessions and is recorded in AuditEvent.
+- Persistent rate-limit buckets use PostgreSQL's live clock for atomic window reset. Denials are audited once per bucket/window, structured events are logged without raw identifiers, expired buckets are cleaned opportunistically in bounded batches, and a staff-only monitoring endpoint reports bucket and denial counts. A manual cleanup script is available as `npm run rate-limit:cleanup` for an external scheduled job.
+- Sensitive authentication and 2FA POST routes enforce exact same-origin checks, reject HTTP-origin downgrade in production, and use bounded request bodies.
 
-## Environment
-Set AUTH_SECRET and AUTH_URL, and optionally AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET, in the deployment environment. Do not commit real values.
+## Automated verification
 
-This is an authentication foundation, not a production-ready security certification. Do not launch with real user data until the remaining controls are implemented and tested.
+The security PR's CI runs unit tests, TypeScript typechecking, disposable PostgreSQL integration/concurrency tests, migration validation and production build. New coverage checks session-version revocation, verified Google email claims, staff-role authorization, rate-limit cleanup/denial auditing, and OTP concurrency/replay behavior.
 
-## Registration and two-factor implementation
-- Email/password registration stores an Argon2id password hash and assigns USER role server-side.
-- Email verification uses a six-digit code with a ten-minute expiry and a maximum of five verification attempts.
-- Password sign-in is blocked until the email address is verified.
-- Authenticator-app TOTP setup encrypts the pending secret using AES-256-GCM. Configure TOTP_ENCRYPTION_KEY as base64 for exactly 32 random bytes.
-- Email OTP can be enabled from /security/2fa; sign-in requires the emailed code after the password.
-- OAuth sign-in is blocked for accounts with 2FA enabled until an OAuth second-factor challenge flow is implemented; this prevents OAuth from bypassing 2FA.
+A green workflow is evidence for the exact commit tested; it does not validate Railway production settings or replace independent human review.
 
-## Production blockers
-- Add automated cleanup and monitoring for persistent rate-limit buckets, and validate client-IP extraction behind the production reverse proxy.
-- Add backup-code issuance/rotation, account recovery, trusted-device policy, and audited staff provisioning. Resend-verification is implemented.
-- Add automated integration tests and run migrations/build before deployment.
-- Review email sender configuration, secret management, logging redaction, session invalidation, and all state-changing route origin checks.
+## Production configuration still required
+
+1. **Railway trusted ingress:** Applied to `patient-tenderness/production` on 2026-11-18. The same newly generated 64-character hex `TRUSTED_PROXY_HEADER_SECRET` was set on the app and proxy; values are redacted by Railway. The app has `AUTH_URL` pointed at the proxy and `HOSTNAME=::` for IPv6/private-network binding. The app's direct public Railway domain has been removed. NGINX now resolves the app's private hostname every second using Railway's internal IPv6 resolver and validates its configuration before starting. Both app and proxy deployments reached `SUCCESS`; the app's Railway `GET /api/health` healthcheck succeeded. An external POST probe to the GET-only health endpoint returned HTTP 405 in 37 ms with no upstream error, confirming proxy-to-app reachability rather than a 504 timeout. This was a routing smoke test, not a full browser/authentication journey. A probe made while the app was restarting briefly returned 500 due to upstream connection refusal; a post-deploy probe then reached the app. The production app is still running `main` commit `c258d571e88a49fee022c390cabd09b82f28c84a`; the security PR has not been deployed or merged. Railway's public edge overwrites `X-Real-IP` and related forwarding headers on public requests; however, Railway does not distinguish public-edge requests from private-network callers at the application layer. The environment is the trust boundary: the current environment contains only the app, proxy and PostgreSQL service. Treat any future service added to this environment as trusted, or place untrusted workloads in a separate Railway environment.
+2. **TOTP encryption key:** The Railway connected read now lists `TOTP_ENCRYPTION_KEY`, but its value is redacted. Verify it is non-empty, valid base64 containing exactly 32 bytes, and is the key used to encrypt existing secrets. Do not rotate it until a read-only database count confirms there are no active/pending encrypted TOTP secrets, or the original key is recovered.
+3. **Transactional email:** The Railway connected read now lists `EMAIL_FROM` and `RESEND_API_KEY`, but their values are redacted. Verify the sender is non-empty and its domain is authenticated, confirm the provider key is valid, and perform a controlled delivery test before relying on verification, OTP, password-reset or recovery email.
+4. **Google OAuth:** `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` were not present in the inspected production variable list. If Google sign-in is required, add credentials and register the callback against the trusted proxy hostname. Otherwise keep Google sign-in disabled.
+5. **Independent human review:** No independent human review is recorded on PR #14. A repository owner must nominate/request an available human collaborator or security reviewer. Automated AI reviews are not a substitute.
+6. **DeepSeek second opinion:** The optional GitHub Action now classifies HTTP 402/Insufficient Balance and writes an explicit skipped/not-passed summary. The provider still rejects the request for insufficient balance. This is an external DeepSeek account billing condition, not a code defect. An account owner must add API credits or replace the API key with one backed by an adequately funded account; do not treat the unavailable review as a pass.
+7. **Live validation:** After the staged Railway patch is applied, verify the app is listening on `[::]:8080`, then test proxy GET/POST paths, OAuth callback, cookie attributes, direct-origin rejection, rate-limit IP spoofing and runtime logs from outside the environment. Confirm the proxy can reach the app after app redeploys.
+8. **Operational/security gates:** Verify backups and restore, alert routing, log redaction, malware scanning/quarantine for uploaded CVs, live two-account tenant isolation, privacy/retention requirements and independent penetration testing before accepting real customer data.
+
+## Release decision
+
+**NOT READY TO MERGE OR RELEASE** until the new PR-head CI/migration checks pass, the staged Railway changes are applied and externally verified, required email/TOTP/OAuth configuration is resolved for enabled features, and an independent human reviewer has reviewed the final commit.
+
+Do not merge or deploy based solely on automated scans or this implementation note.
