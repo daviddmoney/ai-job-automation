@@ -7,6 +7,8 @@ type VerificationDatabase = {
   ): Promise<T>;
 };
 
+type RawQueryClient = VerificationDatabase;
+
 /**
  * OTPs have only one million possible values, so their digest must be keyed.
  */
