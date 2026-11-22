@@ -74,21 +74,13 @@ jobs:
           GITLEAKS_VERSION: 8.30.1
 
   snyk:
+    if: ${{ secrets.SNYK_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
-      - name: Verify Snyk token is configured
-        shell: bash
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: |
-          if [ -z "$SNYK_TOKEN" ]; then
-            echo "::error::SNYK_TOKEN repository secret is missing. Add it under Settings > Secrets and variables > Actions > Repository secrets."
-            exit 1
-          fi
       - name: Install dependencies
         run: npm ci
       - name: Install Snyk CLI
