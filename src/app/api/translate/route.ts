@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
  } catch (error) {
   const code = error instanceof Error ? error.message : "";
   const status = code === "TRANSLATION_NOT_CONFIGURED" ? 503 : code === "TRANSLATION_TEXT_INVALID" || code === "TRANSLATION_LANGUAGE_INVALID" || code === "TRANSLATION_LANGUAGE_UNSUPPORTED" ? 400 : 502;
-  return NextResponse.json({ message: status === 503 ? "No translation provider is configured." : status === 400 ? "Invalid or unsupported translation language." : "Translation providers are temporarily unavailable." }, { status });
+  const message = status === 503 ? "No translation provider is configured." : code === "TRANSLATION_LANGUAGE_UNSUPPORTED" ? "No configured translation provider supports this source and target language pair." : status === 400 ? "Invalid or unsupported translation language." : "Translation providers are temporarily unavailable.";
+  return NextResponse.json({ message }, { status });
  }
 }
