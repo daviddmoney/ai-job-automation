@@ -16,6 +16,7 @@ export function isSupportedTranslationLanguage(language: string): boolean {
 }
 function providerSupports(provider: TranslationProvider, input: TranslationInput): boolean {
  const languages = provider === "deepl" ? DEEPL_LANGUAGES : provider === "aws" ? AWS_LANGUAGES : COMMON_TRANSLATION_LANGUAGES;
+ if (provider === "aws" && (!input.sourceLanguage || input.sourceLanguage === "auto")) return false;
  return languages.has(input.targetLanguage.toLowerCase()) &&
   (!input.sourceLanguage || input.sourceLanguage === "auto" || languages.has(input.sourceLanguage.toLowerCase()));
 }
