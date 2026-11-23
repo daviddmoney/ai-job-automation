@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { matchesLanguageOption } from "@/lib/language-options";
 
 type Preferences = {
   preferredCountries: string[];
@@ -18,7 +19,7 @@ type Preferences = {
   worldwideSearch: boolean;
 };
 
-type Option = { value: string; label: string; group?: string };
+type Option = { value: string; label: string; group?: string; native?: string | null };
 
 const empty: Preferences = {
   preferredCountries: [], preferredRegions: [], preferredCities: [], preferredWorkModes: [],
@@ -118,7 +119,7 @@ function LanguageSingleSelect({ label, value, onChange }: { label: string; value
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
   const selected = options.find(option => option.value === value);
-  const visible = options.filter(option => !query.trim() || option.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()) || option.value.toLocaleLowerCase().includes(query.toLocaleLowerCase())).slice(0, 100);
+  const visible = options.filter(option => matchesLanguageOption(option, query)).slice(0, 100);
   return <div style={fieldStyle}>
     <strong>{label}</strong>
     <div style={{ border: "1px solid var(--border, #ccd3df)", borderRadius: 9, padding: 8, background: "var(--panel, white)", position: "relative" }}>
@@ -144,7 +145,7 @@ function MultiSelect({
   const [open, setOpen] = useState(false);
   const filtered = useMemo(() => {
     const q = query.trim().toLocaleLowerCase();
-    return (q ? options.filter(option => option.label.toLocaleLowerCase().includes(q) || option.value.toLocaleLowerCase().includes(q)) : options).slice(0, 300);
+    return (q ? options.filter(option => matchesLanguageOption(option, q)) : options).slice(0, 300);
   }, [options, query]);
   const selectedLabels = value.map(item => options.find(option => option.value === item)?.label || item);
   function toggle(item: string) {
@@ -384,7 +385,9 @@ export default function JobPreferencesForm() {
 
     <hr style={{ border: 0, borderTop: "1px solid var(--border, #e5e9f0)", margin: "22px 0" }} />
     <h2 style={{ fontSize: 21 }}>Language preferences</h2>
-    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Search across ISO 639-1 and ISO 639-3 language identifiers, including thousands of individual living, historical, ancient and constructed languages. Common languages retain their two-letter ISO 639-1 codes; languages without one use their three-letter ISO 639-3 code.</p><br /><small>Language-code source: SIL International, ISO 639-3 (iso639-3.sil.org).</small>
+    <p style={{ color: "var(--muted, #667085)", fontSize: 14, lineHeight: 1.6 }}>Search across ISO 639-1 and ISO 639-3 language identifiers, including thousands of individual living, historical, ancient and constructed languages. Common languages retain their two-letter ISO 639-1 codes; languages without one use their three-letter ISO 639-3 code.</p>
+    <p role="note" style={{ color: "var(--muted, #667085)", fontSize: 13, lineHeight: 1.6 }}>This catalogue is used for language preferences and discovery. Translation is available for a smaller set of languages and depends on the translation providers configured by the platform. Selecting a language here does not guarantee that it can be translated.</p>
+    <small>Language-code source: SIL International, ISO 639-3 (iso639-3.sil.org).</small>
     {([
       ["interfaceLanguage", "Website interface language"],
       ["nativeLanguage", "Native language"],
