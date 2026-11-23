@@ -3,14 +3,19 @@ export type TranslationProvider = "google" | "deepl" | "azure" | "aws" | "openai
 export interface TranslationInput { text: string; sourceLanguage?: string; targetLanguage: string; }
 export interface TranslationResult { translatedText: string; provider: TranslationProvider; sourceLanguage: string; targetLanguage: string; }
 const headers = { "Content-Type": "application/json", Accept: "application/json" };
-const SUPPORTED_LANGUAGES = new Set(["en","fr","de","es","it","pt","pt-br","zh","zh-cn","zh-tw","ja","ko","ar","hi","yo","ig","ha","sw","nl","ru","tr","pl","uk","vi","th","id","ms","fil","sv","da","no","fi","el","he","fa","bg","cs","ro","hu","hr","sk","sl","lt","lv","et"]);
+const COMMON_TRANSLATION_LANGUAGES = new Set(["en","fr","de","es","it","pt","pt-br","zh","zh-cn","zh-tw","ja","ko","ar","hi","yo","ig","ha","sw","nl","ru","tr","pl","uk","vi","th","id","ms","fil","sv","da","no","fi","el","he","fa","bg","cs","ro","hu","hr","sk","sl","lt","lv","et"]);
 const DEEPL_LANGUAGES = new Set(["bg","cs","da","de","el","en","es","et","fi","fr","hu","id","it","ja","ko","lt","lv","nl","pl","pt","pt-br","ro","ru","sk","sl","sv","tr","uk","zh"]);
 const AWS_LANGUAGES = new Set(["af","ar","az","bn","bs","bg","ca","zh","zh-cn","zh-tw","hr","cs","da","fa","nl","en","et","fi","fr","ka","de","el","gu","ht","he","hi","hu","is","id","it","ja","kn","kk","ko","lv","lt","mk","ms","ml","mt","mr","mn","no","ps","pl","pt","ro","ru","sr","si","sk","sl","so","es","sw","sv","tl","ta","te","th","tr","uk","ur","uz","vi","cy"]);
+const SUPPORTED_LANGUAGES = new Set([
+ ...COMMON_TRANSLATION_LANGUAGES,
+ ...DEEPL_LANGUAGES,
+ ...AWS_LANGUAGES,
+]);
 export function isSupportedTranslationLanguage(language: string): boolean {
  return SUPPORTED_LANGUAGES.has(language.toLowerCase());
 }
 function providerSupports(provider: TranslationProvider, input: TranslationInput): boolean {
- const languages = provider === "deepl" ? DEEPL_LANGUAGES : provider === "aws" ? AWS_LANGUAGES : SUPPORTED_LANGUAGES;
+ const languages = provider === "deepl" ? DEEPL_LANGUAGES : provider === "aws" ? AWS_LANGUAGES : COMMON_TRANSLATION_LANGUAGES;
  return languages.has(input.targetLanguage.toLowerCase()) &&
   (!input.sourceLanguage || input.sourceLanguage === "auto" || languages.has(input.sourceLanguage.toLowerCase()));
 }
