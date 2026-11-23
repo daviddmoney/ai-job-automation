@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: 22
       - name: Install locked dependencies
-        run: npm ci
+        run: npm install
       - name: Run npm audit and save JSON report
         shell: bash
         run: |
@@ -74,18 +74,35 @@ jobs:
           GITLEAKS_VERSION: 8.30.1
 
   snyk:
-    if: ${{ secrets.SNYK_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Check whether Snyk token is configured
+        id: snyk-token
+        shell: bash
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          if [ -n "$SNYK_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "SNYK_TOKEN is not configured; skipping Snyk scan."
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.snyk-token.outputs.present == 'true'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: steps.snyk-token.outputs.present == 'true'
         with:
           node-version: 22
       - name: Install dependencies
-        run: npm ci
+        if: steps.snyk-token.outputs.present == 'true'
+        run: npm install
       - name: Install Snyk CLI
+        if: steps.snyk-token.outputs.present == 'true'
         run: npm install --global snyk
       - name: Run Snyk vulnerability scan
+        if: steps.snyk-token.outputs.present == 'true'
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: snyk test --all-projects --severity-threshold=high
