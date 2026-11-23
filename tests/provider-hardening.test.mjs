@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fetchBoardJson, employerName, explicitRemoteEligibility } from "../src/lib/jobs/sources/board-utils.ts";
-import { isSupportedTranslationLanguage } from "../src/lib/translation/index.ts";
+import { isSupportedTranslationLanguage, translateText } from "../src/lib/translation/index.ts";
 import { matchesLanguageOption } from "../src/lib/language-options.ts";
 
 test("board request retries transient provider errors then succeeds", async () => {
@@ -256,4 +256,29 @@ test("translation language validation includes provider-specific languages", () 
  assert.equal(isSupportedTranslationLanguage("bn"), true);
  assert.equal(isSupportedTranslationLanguage("ca"), true);
  assert.equal(isSupportedTranslationLanguage("made-up-language"), false);
+});
+
+
+test("AWS Translate is skipped when the source language is automatic", async () => {
+ const previous = {
+  access: process.env.AWS_ACCESS_KEY_ID,
+  secret: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_TRANSLATE_REGION,
+  order: process.env.TRANSLATION_PROVIDER_ORDER,
+ };
+ process.env.AWS_ACCESS_KEY_ID = "test-access-key";
+ process.env.AWS_SECRET_ACCESS_KEY = "test-secret-key";
+ process.env.AWS_TRANSLATE_REGION = "us-east-1";
+ process.env.TRANSLATION_PROVIDER_ORDER = "aws";
+ try {
+  await assert.rejects(
+   () => translateText({ text: "hello", sourceLanguage: "auto", targetLanguage: "af" }),
+   /TRANSLATION_LANGUAGE_UNSUPPORTED/
+  );
+ } finally {
+  if (previous.access === undefined) delete process.env.AWS_ACCESS_KEY_ID; else process.env.AWS_ACCESS_KEY_ID = previous.access;
+  if (previous.secret === undefined) delete process.env.AWS_SECRET_ACCESS_KEY; else process.env.AWS_SECRET_ACCESS_KEY = previous.secret;
+  if (previous.region === undefined) delete process.env.AWS_TRANSLATE_REGION; else process.env.AWS_TRANSLATE_REGION = previous.region;
+  if (previous.order === undefined) delete process.env.TRANSLATION_PROVIDER_ORDER; else process.env.TRANSLATION_PROVIDER_ORDER = previous.order;
+ }
 });
