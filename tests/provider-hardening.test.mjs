@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { fetchBoardJson, employerName, explicitRemoteEligibility } from "../src/lib/jobs/sources/board-utils.ts";
 import { isSupportedTranslationLanguage } from "../src/lib/translation/index.ts";
+import { matchesLanguageOption } from "../src/lib/language-options.ts";
 
 test("board request retries transient provider errors then succeeds", async () => {
  const original = globalThis.fetch;
@@ -237,4 +238,22 @@ test("rate limiting accepts valid authenticated IPv4/IPv6 edge identity and hash
     if (previousAuthSecret === undefined) delete process.env.AUTH_SECRET;
     else process.env.AUTH_SECRET = previousAuthSecret;
   }
+});
+
+
+test("language option search matches native names as well as labels and ISO codes", () => {
+ const option = { value: "yo", label: "Yoruba (yor · ISO 639-1 yo)", native: "Èdè Yorùbá" };
+ assert.equal(matchesLanguageOption(option, "yoruba"), true);
+ assert.equal(matchesLanguageOption(option, "ÈDÈ YORÙBÁ"), true);
+ assert.equal(matchesLanguageOption(option, "yo"), true);
+ assert.equal(matchesLanguageOption(option, "  "), true);
+ assert.equal(matchesLanguageOption(option, "swahili"), false);
+});
+
+test("translation language validation includes provider-specific languages", () => {
+ assert.equal(isSupportedTranslationLanguage("af"), true);
+ assert.equal(isSupportedTranslationLanguage("az"), true);
+ assert.equal(isSupportedTranslationLanguage("bn"), true);
+ assert.equal(isSupportedTranslationLanguage("ca"), true);
+ assert.equal(isSupportedTranslationLanguage("made-up-language"), false);
 });
